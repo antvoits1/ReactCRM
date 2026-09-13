@@ -21,11 +21,15 @@ jobs:
       - name: Run app and verify three-panel CRM
         shell: bash
         run: |
-          npm run dev -- --host 127.0.0.1 > /tmp/reactcrm-vite.log 2>&1 &
+          npx vite --host 127.0.0.1 --port 5173 > /tmp/reactcrm-vite.log 2>&1 &
           for i in {1..30}; do
             if curl -fsS http://127.0.0.1:5173 >/dev/null; then break; fi
             sleep 1
           done
+          if ! curl -fsS http://127.0.0.1:5173 >/dev/null; then
+            cat /tmp/reactcrm-vite.log
+            exit 1
+          fi
           node <<'NODE'
           const { chromium } = require('playwright');
           (async () => {
