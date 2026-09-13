@@ -86,13 +86,17 @@ export default function App() {
         {activePage === 'crm' && lead && (
           <>
             <LeadsRail leads={leads} selectedId={selectedId} setSelectedId={setSelectedId} />
-            <LeadDetailPanel
-              lead={lead}
-              onOpenDialer={openDialer}
-              onOpenMessages={openMessages}
-              setViewerDocIndex={setViewerDocIndex}
-            />
-            <IOSCommPanel lead={lead} preferredMobile={messageNumber} />
+            <div data-panel="lead-detail" className="flex flex-1 basis-0 min-w-0 overflow-hidden">
+              <LeadDetailPanel
+                lead={lead}
+                onOpenDialer={openDialer}
+                onOpenMessages={openMessages}
+                setViewerDocIndex={setViewerDocIndex}
+              />
+            </div>
+            <div data-panel="communications" className="flex flex-1 basis-0 min-w-0 overflow-hidden">
+              <IOSCommPanel lead={lead} preferredMobile={messageNumber} fullWidth />
+            </div>
           </>
         )}
 

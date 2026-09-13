@@ -27,7 +27,7 @@ export default function LeadsRail({ leads, selectedId, setSelectedId }: LeadsRai
   }, [leads, query, sortByRevenue]);
 
   return (
-    <div className="w-[320px] bg-white flex flex-col flex-shrink-0 z-10 overflow-hidden relative">
+    <div data-panel="leads" className="w-[460px] bg-white flex flex-col flex-shrink-0 z-10 overflow-hidden relative">
       <div className="h-[68px] flex items-center justify-between px-5 border-b border-slate-200 flex-shrink-0 bg-slate-50">
         <h2 className="font-semibold text-[calc(14px+var(--font-offset))] tracking-wide text-slate-900">LEADS <span className="text-slate-500 text-[calc(12px+var(--font-offset))] ml-1">({visibleLeads.length})</span></h2>
         <div className="flex gap-1.5 text-slate-500">

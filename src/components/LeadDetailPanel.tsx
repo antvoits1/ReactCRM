@@ -1,4 +1,4 @@
-import { Phone, Mail, MessageSquareText, Users, FileText } from 'lucide-react';
+import { Phone, Mail, MessageSquareText, FileText } from 'lucide-react';
 import { Lead } from '../data';
 import { formatFinancialUp, generateSalesPitch } from '../lib/format';
 
@@ -13,36 +13,17 @@ export default function LeadDetailPanel({ lead, onOpenDialer, onOpenMessages, se
   const latestStmt = lead.stmts && lead.stmts.length > 0 ? lead.stmts[0] : null;
   const latestDocIndex = lead.mtd ? -1 : 0;
 
-  const scrollToContact = () => {
-    document.getElementById('lead-contact-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
 
   return (
     <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white relative">
       <div className="pb-32 flex flex-col min-h-full">
 
         {/* Record Header */}
-        <div className="px-8 pt-8 pb-6 relative z-10 flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <div className="min-w-0">
-              <h1 className="text-[calc(28px+var(--font-offset))] font-bold tracking-tight text-slate-900 leading-none">{lead.company}</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => onOpenDialer(lead.mobiles[0]?.n ?? lead.landlines[0]?.n)} className="flex items-center justify-center w-10 h-10 rounded-full bg-[#007AFF] text-white hover:opacity-90 shadow-sm transition-opacity" title="Open dialer">
-                <Phone size={18} fill="currentColor" />
-              </button>
-              <button className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 text-[#007AFF] hover:bg-slate-200 shadow-sm transition-colors" title="Message" onClick={() => onOpenMessages(lead.mobiles[0]?.n)}>
-                <MessageSquareText size={18} fill="currentColor" className="text-[#007AFF]" />
-              </button>
-              <button className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 text-[#007AFF] hover:bg-slate-200 shadow-sm transition-colors" title="Email" onClick={() => { window.location.href = `mailto:${lead.emails[0].n}`; }}>
-                <Mail size={18} fill="currentColor" className="text-[#007AFF]" />
-              </button>
-              <button className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 text-[#007AFF] hover:bg-slate-200 shadow-sm transition-colors" title="Jump to contacts" onClick={scrollToContact}>
-                <Users size={18} fill="currentColor" className="text-[#007AFF]" />
-              </button>
-            </div>
+        <div data-section="lead-header" className="px-5 pt-5 pb-4 relative z-10 flex flex-col gap-2">
+          <div className="min-w-0">
+            <h1 className="text-[calc(22px+var(--font-offset))] font-bold tracking-tight text-slate-900 leading-none">{lead.company}</h1>
           </div>
-          <div className="flex items-center gap-2 text-[calc(14px+var(--font-offset))] font-medium">
+          <div className="flex items-center gap-2 text-[calc(12.5px+var(--font-offset))] font-medium">
             <span className="text-slate-900">{lead.contact}</span>
             <span className="text-slate-300">•</span>
             <span className="text-slate-500">{lead.mobiles[0].n}</span>
@@ -52,16 +33,16 @@ export default function LeadDetailPanel({ lead, onOpenDialer, onOpenMessages, se
         <div className="h-px w-full bg-slate-100"></div>
 
         {/* Stat Boxes */}
-        <div className="px-8 py-6 flex gap-4 border-b border-slate-200">
+        <div data-section="lead-stats" className="px-4 py-2 flex gap-1.5 border-b border-slate-200">
           {/* REVENUE */}
-          <div className="flex-1 flex flex-col items-center justify-center py-5 bg-slate-50 border border-slate-200 rounded-xl">
-            <div className="text-[calc(10px+var(--font-offset))] font-bold uppercase tracking-widest text-slate-500 mb-1">REVENUE</div>
-            <div className="text-[calc(20px+var(--font-offset))] font-bold text-slate-900">{formatFinancialUp(lead.avg)}</div>
+          <div className="flex-1 flex flex-col items-center justify-center py-2 bg-slate-50 border border-slate-200 rounded-lg">
+            <div className="text-[calc(8px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5">REVENUE</div>
+            <div className="text-[calc(14.5px+var(--font-offset))] font-bold text-slate-900">{formatFinancialUp(lead.avg)}</div>
           </div>
           {/* DEPOSITS */}
-          <div className="relative group flex-1 flex flex-col items-center justify-center py-5 bg-slate-50 border border-slate-200 rounded-xl cursor-default">
-            <div className="text-[calc(10px+var(--font-offset))] font-bold uppercase tracking-widest text-slate-500 mb-1">DEPOSITS</div>
-            <div className="text-[calc(20px+var(--font-offset))] font-bold text-slate-900">{formatFinancialUp(latestStmt ? latestStmt.dep : 0)}</div>
+          <div className="relative group flex-1 flex flex-col items-center justify-center py-2 bg-slate-50 border border-slate-200 rounded-lg cursor-default">
+            <div className="text-[calc(8px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5">DEPOSITS</div>
+            <div className="text-[calc(14.5px+var(--font-offset))] font-bold text-slate-900">{formatFinancialUp(latestStmt ? latestStmt.dep : 0)}</div>
             {latestStmt && (
               <div className="absolute -bottom-10 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bg-slate-800 text-white text-[calc(11px+var(--font-offset))] font-medium px-2.5 py-1.5 rounded shadow-lg whitespace-nowrap z-50">
                 {latestStmt.m.split(' ')[0]} Deposits
@@ -69,9 +50,9 @@ export default function LeadDetailPanel({ lead, onOpenDialer, onOpenMessages, se
             )}
           </div>
           {/* BALANCE */}
-          <div className="relative group flex-1 flex flex-col items-center justify-center py-5 bg-slate-50 border border-slate-200 rounded-xl cursor-default">
-            <div className="text-[calc(10px+var(--font-offset))] font-bold uppercase tracking-widest text-slate-500 mb-1">BALANCE</div>
-            <div className="text-[calc(20px+var(--font-offset))] font-bold text-slate-900">{formatFinancialUp(latestStmt ? (latestStmt.bal ?? latestStmt.end) : 0)}</div>
+          <div className="relative group flex-1 flex flex-col items-center justify-center py-2 bg-slate-50 border border-slate-200 rounded-lg cursor-default">
+            <div className="text-[calc(8px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5">BALANCE</div>
+            <div className="text-[calc(14.5px+var(--font-offset))] font-bold text-slate-900">{formatFinancialUp(latestStmt ? (latestStmt.bal ?? latestStmt.end) : 0)}</div>
             {latestStmt && (
               <div className="absolute -bottom-10 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bg-slate-800 text-white text-[calc(11px+var(--font-offset))] font-medium px-2.5 py-1.5 rounded shadow-lg whitespace-nowrap z-50">
                 {latestStmt.m.split(' ')[0]} Balance
@@ -79,16 +60,16 @@ export default function LeadDetailPanel({ lead, onOpenDialer, onOpenMessages, se
             )}
           </div>
           {/* APPROVAL */}
-          <div className="flex-1 flex flex-col items-center justify-center py-5 bg-slate-50 border border-slate-200 rounded-xl">
-            <div className="text-[calc(10px+var(--font-offset))] font-bold uppercase tracking-widest text-slate-500 mb-1">APPROVAL</div>
-            <div className="text-[calc(20px+var(--font-offset))] font-bold text-slate-900">{formatFinancialUp(lead.avg + 150000)}</div>
+          <div className="flex-1 flex flex-col items-center justify-center py-2 bg-slate-50 border border-slate-200 rounded-lg">
+            <div className="text-[calc(8px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5">APPROVAL</div>
+            <div className="text-[calc(14.5px+var(--font-offset))] font-bold text-slate-900">{formatFinancialUp(lead.avg + 150000)}</div>
           </div>
         </div>
 
         {/* ROW 1: Contact & Business */}
-        <div className="grid grid-cols-2 border-b border-slate-200">
+        <div className="grid grid-cols-1 min-[1600px]:grid-cols-2 border-b border-slate-200">
 
-          <div id="lead-contact-section" className="p-8 border-r border-slate-200">
+          <div id="lead-contact-section" className="p-3 border-b min-[1600px]:border-b-0 min-[1600px]:border-r border-slate-200">
             <h3 className="text-[calc(11px+var(--font-offset))] font-bold tracking-widest uppercase text-slate-500 mb-6 flex items-center">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-2"></span> Contact
             </h3>
@@ -127,49 +108,49 @@ export default function LeadDetailPanel({ lead, onOpenDialer, onOpenMessages, se
             </div>
           </div>
 
-          <div className="p-8">
+          <div className="p-3">
             <h3 className="text-[calc(11px+var(--font-offset))] font-bold tracking-widest uppercase text-slate-500 mb-6 flex items-center">
               <span className="w-1.5 h-1.5 rounded-full bg-slate-700 mr-2"></span> Business
             </h3>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-5">
               <div>
-                <div className="text-[calc(10px+var(--font-offset))] font-bold uppercase tracking-widest text-slate-500 mb-1.5">DBA</div>
+                <div className="text-[calc(8px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5.5">DBA</div>
                 <div className="text-[calc(13.5px+var(--font-offset))] text-slate-900 font-medium">{lead.dba}</div>
               </div>
               <div>
-                <div className="text-[calc(10px+var(--font-offset))] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Industry</div>
+                <div className="text-[calc(8px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5.5">Industry</div>
                 <div className="text-[calc(13.5px+var(--font-offset))] text-slate-900 font-medium">{lead.industry.split('·')[0]}</div>
               </div>
               <div>
-                <div className="text-[calc(10px+var(--font-offset))] font-bold uppercase tracking-widest text-slate-500 mb-1.5">EIN</div>
+                <div className="text-[calc(8px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5.5">EIN</div>
                 <div className="text-[calc(13.5px+var(--font-offset))] text-slate-900 font-medium">{lead.ein}</div>
               </div>
               <div>
-                <div className="text-[calc(10px+var(--font-offset))] font-bold uppercase tracking-widest text-slate-500 mb-1.5">SSN</div>
+                <div className="text-[calc(8px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5.5">SSN</div>
                 <div className="text-[calc(13.5px+var(--font-offset))] text-slate-900 font-medium">{lead.ssn}</div>
               </div>
               <div>
-                <div className="text-[calc(10px+var(--font-offset))] font-bold uppercase tracking-widest text-slate-500 mb-1.5">DOB</div>
+                <div className="text-[calc(8px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5.5">DOB</div>
                 <div className="text-[calc(13.5px+var(--font-offset))] text-slate-900 font-medium">{lead.dob}</div>
               </div>
               <div>
-                <div className="text-[calc(10px+var(--font-offset))] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Time in Biz</div>
+                <div className="text-[calc(8px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5.5">Time in Biz</div>
                 <div className="text-[calc(13.5px+var(--font-offset))] text-slate-900 font-medium">{lead.tib}</div>
               </div>
               <div>
-                <div className="text-[calc(10px+var(--font-offset))] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Entity</div>
+                <div className="text-[calc(8px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5.5">Entity</div>
                 <div className="text-[calc(13.5px+var(--font-offset))] text-slate-900 font-medium">{lead.entity}</div>
               </div>
               <div>
-                <div className="text-[calc(10px+var(--font-offset))] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Employees</div>
+                <div className="text-[calc(8px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5.5">Employees</div>
                 <div className="text-[calc(13.5px+var(--font-offset))] text-slate-900 font-medium">{lead.employees}</div>
               </div>
               <div className="col-span-2">
-                <div className="text-[calc(10px+var(--font-offset))] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Address</div>
+                <div className="text-[calc(8px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5.5">Address</div>
                 <div className="text-[calc(13.5px+var(--font-offset))] text-slate-900 font-medium">{lead.address}</div>
               </div>
               <div className="col-span-2">
-                <div className="text-[calc(10px+var(--font-offset))] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Website</div>
+                <div className="text-[calc(8px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5.5">Website</div>
                 <a href={`https://${lead.website}`} target="_blank" rel="noreferrer" className="text-[calc(13.5px+var(--font-offset))] text-[#2563EB] hover:underline font-medium">{lead.website}</a>
               </div>
             </div>
@@ -177,9 +158,9 @@ export default function LeadDetailPanel({ lead, onOpenDialer, onOpenMessages, se
         </div>
 
         {/* ROW 2: Statements & Bank */}
-        <div className="grid grid-cols-2 border-b border-slate-200">
+        <div className="grid grid-cols-1 min-[1600px]:grid-cols-2 border-b border-slate-200">
 
-          <div className="p-8 border-r border-slate-200">
+          <div className="p-3 border-b min-[1600px]:border-b-0 min-[1600px]:border-r border-slate-200">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-[calc(11px+var(--font-offset))] font-bold tracking-widest uppercase text-slate-500 m-0 flex items-center">
                 <span className="w-1.5 h-1.5 rounded-full bg-teal-500 mr-2"></span> Statements
@@ -222,7 +203,7 @@ export default function LeadDetailPanel({ lead, onOpenDialer, onOpenMessages, se
             </table>
           </div>
 
-          <div className="p-8">
+          <div className="p-3">
             <h3 className="text-[calc(11px+var(--font-offset))] font-bold tracking-widest uppercase text-slate-500 mb-6 flex items-center">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-2"></span> Bank
             </h3>
@@ -257,7 +238,7 @@ export default function LeadDetailPanel({ lead, onOpenDialer, onOpenMessages, se
 
         {/* ROW 3: Pitch & Activity */}
         <div className="grid grid-cols-2 flex-1">
-          <div className="p-8 border-r border-slate-200">
+          <div className="p-3 border-b min-[1600px]:border-b-0 min-[1600px]:border-r border-slate-200">
             <h3 className="text-[calc(11px+var(--font-offset))] font-bold tracking-widest uppercase text-slate-500 mb-5">
               PITCH
             </h3>
@@ -268,7 +249,7 @@ export default function LeadDetailPanel({ lead, onOpenDialer, onOpenMessages, se
             </div>
           </div>
 
-          <div className="p-8">
+          <div className="p-3">
             <h3 className="text-[calc(11px+var(--font-offset))] font-bold tracking-widest uppercase text-slate-500 mb-5">
               ACTIVITY
             </h3>
