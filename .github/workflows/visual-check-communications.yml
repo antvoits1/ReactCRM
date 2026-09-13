@@ -1,0 +1,49 @@
+name: Visual Check Restored Communications
+
+on:
+  push:
+    paths:
+      - '.github/workflows/visual-check-communications.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  visual-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run build
+      - run: npm install --no-save --no-package-lock playwright@1.55.0
+      - run: npx playwright install --with-deps chromium
+      - name: Run app and verify three-panel CRM
+        shell: bash
+        run: |
+          npm run dev -- --host 127.0.0.1 > /tmp/reactcrm-vite.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:5173 >/dev/null; then break; fi
+            sleep 1
+          done
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch({headless:true});
+            const page = await browser.newPage({viewport:{width:1200,height:900}, deviceScaleFactor:1});
+            await page.goto('http://127.0.0.1:5173', {waitUntil:'networkidle'});
+            for (const label of ['messages','calls','contacts','email']) {
+              const button = page.getByRole('button', {name:new RegExp(`^${label}$`, 'i')});
+              if (await button.count() < 1 || !(await button.first().isVisible())) throw new Error(`${label} tab missing`);
+            }
+            const tab = page.getByRole('button', {name:/^messages$/i}).first();
+            const box = await tab.boundingBox();
+            if (!box || box.x < 760) throw new Error(`communications panel not positioned as third panel: x=${box?.x}`);
+            await page.screenshot({path:'communications-restored.png', fullPage:true});
+            await browser.close();
+          })().catch(err => { console.error(err); process.exit(1); });
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: communications-restored
+          path: communications-restored.png
