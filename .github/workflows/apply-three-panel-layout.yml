@@ -59,13 +59,13 @@ jobs:
 
           # Compact stat row for the narrower middle panel.
           text = text.replace('<div className="px-8 py-6 flex gap-4 border-b border-slate-200">',
-                              '<div data-section="lead-stats" className="px-5 py-3 flex gap-2 border-b border-slate-200">', 1)
+                              '<div data-section="lead-stats" className="px-4 py-2 flex gap-1.5 border-b border-slate-200">', 1)
           text = text.replace('py-5 bg-slate-50 border border-slate-200 rounded-xl',
-                              'py-3 bg-slate-50 border border-slate-200 rounded-lg')
+                              'py-2 bg-slate-50 border border-slate-200 rounded-lg')
           text = text.replace('text-[calc(10px+var(--font-offset))] font-bold uppercase tracking-widest text-slate-500 mb-1',
-                              'text-[calc(8.5px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5')
+                              'text-[calc(8px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5')
           text = text.replace('text-[calc(20px+var(--font-offset))] font-bold text-slate-900',
-                              'text-[calc(15.5px+var(--font-offset))] font-bold text-slate-900')
+                              'text-[calc(14.5px+var(--font-offset))] font-bold text-slate-900')
 
           # Make the middle panel usable at ~338px on the 1200px canvas.
           # At >=1600px viewport, the original two-column information rows return.
@@ -129,7 +129,7 @@ jobs:
             assert(db && cb, `${label}: panel geometry unavailable`);
             assert(Math.abs(db.width - cb.width) <= 2, `${label}: panels 2/3 not 50/50 (${db.width} vs ${cb.width})`);
             assert(cb.x + cb.width <= 1201, `${label}: communications panel is off-screen (${cb.x + cb.width})`);
-            assert(sb && sb.height <= 82, `${label}: stat row too tall (${sb?.height})`);
+            assert(sb && sb.height <= 72, `${label}: stat row too tall (${sb?.height})`);
             assert(await header.locator('button').count() === 0, `${label}: lead-header communication buttons still present`);
 
             const detailOverflow = await detail.evaluate(el => el.scrollWidth - el.clientWidth);
