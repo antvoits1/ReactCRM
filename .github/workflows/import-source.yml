@@ -45,3 +45,5 @@ jobs:
           git add -A
           git commit -m "Import repaired ReactCRM source"
           git push origin HEAD:main
+
+# retry after archive chunk repair
