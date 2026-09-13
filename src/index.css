@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-canvas: #EEF1F4;
+    --text-primary: #0F172A;
+    --border-color: #E2E8F0;
+    --ui-scale: 1;
+    --font-offset: 0px;
+    --font-family-main: 'Inter', sans-serif;
+  }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: #EEF1F4;
+    color: var(--text-primary);
+    overflow: hidden;
+    font-family: var(--font-family-main) !important;
+  }
+
+  #root {
+    width: calc(100% / var(--ui-scale));
+    height: calc(100dvh / var(--ui-scale));
+    transform: scale(var(--ui-scale));
+    transform-origin: top left;
+    overflow: hidden;
+  }
+
+  *, button, input, textarea, select {
+    font-family: inherit;
+    border-color: var(--border-color);
+  }
+
+  .font-mono {
+    font-family: 'Inter', monospace !important;
+  }
+}
+
+@layer utilities {
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+  .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+.lead-quick-actions {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.group:hover .lead-quick-actions {
+  opacity: 1;
+}
+
+/* Fixed 1200px desktop canvas on phones. The root compensates for UI scale,
+   so every scale setting still fills the visible canvas while pinch-zoom remains enabled. */
+@media (max-width: 1200px), (pointer: coarse) {
+  html, body {
+    width: 1200px !important;
+    min-width: 1200px !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  #root {
+    width: calc(1200px / var(--ui-scale)) !important;
+    min-width: 0 !important;
+    height: calc(100dvh / var(--ui-scale)) !important;
+    touch-action: pan-x pan-y pinch-zoom !important;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .lead-quick-actions {
+    opacity: 1;
+  }
+}
