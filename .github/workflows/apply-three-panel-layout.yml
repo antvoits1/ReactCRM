@@ -1,0 +1,193 @@
+name: Apply Three Panel Layout
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-three-panel-layout.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-test-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply clean source edits
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f'Expected source block not found in {path}: {old[:80]!r}')
+              p.write_text(text.replace(old, new, 1))
+
+          # Panel 1: 460px fixed default.
+          replace_once(
+              'src/components/LeadsRail.tsx',
+              '<div className="w-[320px] bg-white flex flex-col flex-shrink-0 z-10 overflow-hidden relative">',
+              '<div data-panel="leads" className="w-[460px] bg-white flex flex-col flex-shrink-0 z-10 overflow-hidden relative">'
+          )
+
+          # Panels 2 and 3: split every remaining pixel evenly and keep communications fully visible.
+          replace_once(
+              'src/App.tsx',
+              '''            <LeadsRail leads={leads} selectedId={selectedId} setSelectedId={setSelectedId} />\n            <LeadDetailPanel\n              lead={lead}\n              onOpenDialer={openDialer}\n              onOpenMessages={openMessages}\n              setViewerDocIndex={setViewerDocIndex}\n            />\n            <IOSCommPanel lead={lead} preferredMobile={messageNumber} />''',
+              '''            <LeadsRail leads={leads} selectedId={selectedId} setSelectedId={setSelectedId} />\n            <div data-panel="lead-detail" className="flex flex-1 basis-0 min-w-0 overflow-hidden">\n              <LeadDetailPanel\n                lead={lead}\n                onOpenDialer={openDialer}\n                onOpenMessages={openMessages}\n                setViewerDocIndex={setViewerDocIndex}\n              />\n            </div>\n            <div data-panel="communications" className="flex flex-1 basis-0 min-w-0 overflow-hidden">\n              <IOSCommPanel lead={lead} preferredMobile={messageNumber} fullWidth />\n            </div>'''
+          )
+
+          detail = Path('src/components/LeadDetailPanel.tsx')
+          text = detail.read_text()
+
+          # Remove only the four lead-header communication buttons; quick actions inside Contact stay intact.
+          old_header = '''        <div className="px-8 pt-8 pb-6 relative z-10 flex flex-col gap-4">\n          <div className="flex justify-between items-center">\n            <div className="min-w-0">\n              <h1 className="text-[calc(28px+var(--font-offset))] font-bold tracking-tight text-slate-900 leading-none">{lead.company}</h1>\n            </div>\n            <div className="flex items-center gap-2">\n              <button onClick={() => onOpenDialer(lead.mobiles[0]?.n ?? lead.landlines[0]?.n)} className="flex items-center justify-center w-10 h-10 rounded-full bg-[#007AFF] text-white hover:opacity-90 shadow-sm transition-opacity" title="Open dialer">\n                <Phone size={18} fill="currentColor" />\n              </button>\n              <button className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 text-[#007AFF] hover:bg-slate-200 shadow-sm transition-colors" title="Message" onClick={() => onOpenMessages(lead.mobiles[0]?.n)}>\n                <MessageSquareText size={18} fill="currentColor" className="text-[#007AFF]" />\n              </button>\n              <button className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 text-[#007AFF] hover:bg-slate-200 shadow-sm transition-colors" title="Email" onClick={() => { window.location.href = `mailto:${lead.emails[0].n}`; }}>\n                <Mail size={18} fill="currentColor" className="text-[#007AFF]" />\n              </button>\n              <button className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 text-[#007AFF] hover:bg-slate-200 shadow-sm transition-colors" title="Jump to contacts" onClick={scrollToContact}>\n                <Users size={18} fill="currentColor" className="text-[#007AFF]" />\n              </button>\n            </div>\n          </div>\n          <div className="flex items-center gap-2 text-[calc(14px+var(--font-offset))] font-medium">'''
+          new_header = '''        <div data-section="lead-header" className="px-5 pt-5 pb-4 relative z-10 flex flex-col gap-2">\n          <div className="min-w-0">\n            <h1 className="text-[calc(22px+var(--font-offset))] font-bold tracking-tight text-slate-900 leading-none">{lead.company}</h1>\n          </div>\n          <div className="flex items-center gap-2 text-[calc(12.5px+var(--font-offset))] font-medium">'''
+          if old_header not in text:
+              raise SystemExit('Lead header block not found')
+          text = text.replace(old_header, new_header, 1)
+
+          text = text.replace('import { Phone, Mail, MessageSquareText, Users, FileText } from \'lucide-react\';',
+                              'import { Phone, Mail, MessageSquareText, FileText } from \'lucide-react\';', 1)
+          text = text.replace("\n  const scrollToContact = () => {\n    document.getElementById('lead-contact-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });\n  };\n", "\n", 1)
+
+          # Compact stat row for the narrower middle panel.
+          text = text.replace('<div className="px-8 py-6 flex gap-4 border-b border-slate-200">',
+                              '<div data-section="lead-stats" className="px-5 py-3 flex gap-2 border-b border-slate-200">', 1)
+          text = text.replace('py-5 bg-slate-50 border border-slate-200 rounded-xl',
+                              'py-3 bg-slate-50 border border-slate-200 rounded-lg')
+          text = text.replace('text-[calc(10px+var(--font-offset))] font-bold uppercase tracking-widest text-slate-500 mb-1',
+                              'text-[calc(8.5px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-0.5')
+          text = text.replace('text-[calc(20px+var(--font-offset))] font-bold text-slate-900',
+                              'text-[calc(15.5px+var(--font-offset))] font-bold text-slate-900')
+
+          # Make the middle panel usable at ~338px on the 1200px canvas.
+          # At >=1600px viewport, the original two-column information rows return.
+          text = text.replace('className="grid grid-cols-2 border-b border-slate-200"',
+                              'className="grid grid-cols-1 min-[1600px]:grid-cols-2 border-b border-slate-200"')
+          text = text.replace('className="p-8 border-r border-slate-200"',
+                              'className="p-3 border-b min-[1600px]:border-b-0 min-[1600px]:border-r border-slate-200"')
+          text = text.replace('className="p-8"', 'className="p-3"')
+          text = text.replace('gap-x-8', 'gap-x-4')
+
+          detail.write_text(text)
+          PY
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: TypeScript check
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install browser test tooling
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Strict visual and function verification
+        shell: bash
+        run: |
+          npx vite --host 127.0.0.1 --port 5173 > /tmp/reactcrm-vite.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:5173 >/dev/null; then break; fi
+            sleep 1
+          done
+          if ! curl -fsS http://127.0.0.1:5173 >/dev/null; then
+            cat /tmp/reactcrm-vite.log
+            exit 1
+          fi
+
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = (condition, message) => { if (!condition) throw new Error(message); };
+
+          async function verifyPage(page, label) {
+            await page.goto('http://127.0.0.1:5173', { waitUntil: 'networkidle' });
+
+            const leads = page.locator('[data-panel="leads"]');
+            const detail = page.locator('[data-panel="lead-detail"]');
+            const comms = page.locator('[data-panel="communications"]');
+            const header = page.locator('[data-section="lead-header"]');
+            const stats = page.locator('[data-section="lead-stats"]');
+
+            for (const [name, loc] of [['leads', leads], ['lead-detail', detail], ['communications', comms], ['header', header], ['stats', stats]]) {
+              assert(await loc.count() === 1, `${label}: ${name} missing or duplicated`);
+              assert(await loc.isVisible(), `${label}: ${name} not visible`);
+            }
+
+            const [lb, db, cb, sb] = await Promise.all([leads.boundingBox(), detail.boundingBox(), comms.boundingBox(), stats.boundingBox()]);
+            assert(lb && Math.abs(lb.width - 460) <= 1.5, `${label}: leads width ${lb?.width}, expected 460`);
+            assert(db && cb, `${label}: panel geometry unavailable`);
+            assert(Math.abs(db.width - cb.width) <= 2, `${label}: panels 2/3 not 50/50 (${db.width} vs ${cb.width})`);
+            assert(cb.x + cb.width <= 1201, `${label}: communications panel is off-screen (${cb.x + cb.width})`);
+            assert(sb && sb.height <= 82, `${label}: stat row too tall (${sb?.height})`);
+            assert(await header.locator('button').count() === 0, `${label}: lead-header communication buttons still present`);
+
+            const detailOverflow = await detail.evaluate(el => el.scrollWidth - el.clientWidth);
+            const commOverflow = await comms.evaluate(el => el.scrollWidth - el.clientWidth);
+            assert(detailOverflow <= 2, `${label}: middle panel horizontal overflow ${detailOverflow}px`);
+            assert(commOverflow <= 2, `${label}: communications panel horizontal overflow ${commOverflow}px`);
+
+            for (const tabName of ['Messages', 'Calls', 'Contacts', 'Email']) {
+              const tab = comms.getByRole('button', { name: new RegExp(`^${tabName}$`, 'i') });
+              assert(await tab.count() === 1, `${label}: ${tabName} tab missing`);
+              assert(await tab.isVisible(), `${label}: ${tabName} tab not visible`);
+              await tab.click();
+              if (tabName === 'Calls') assert(await comms.getByText('Recent', { exact: true }).isVisible(), `${label}: Calls tab did not open`);
+              if (tabName === 'Contacts') assert(await comms.getByPlaceholder('Search').isVisible(), `${label}: Contacts tab did not open`);
+              if (tabName === 'Email') assert(await comms.getByText('Inbox', { exact: true }).isVisible(), `${label}: Email tab did not open`);
+            }
+          }
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+
+            const desktop = await browser.newPage({ viewport: { width: 1200, height: 900 }, deviceScaleFactor: 1 });
+            await verifyPage(desktop, '1200px desktop canvas');
+            await desktop.screenshot({ path: 'three-panel-desktop.png', fullPage: true });
+
+            const mobileContext = await browser.newContext({
+              viewport: { width: 414, height: 896 },
+              deviceScaleFactor: 3,
+              isMobile: true,
+              hasTouch: true,
+              userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1'
+            });
+            const mobile = await mobileContext.newPage();
+            await mobile.goto('http://127.0.0.1:5173', { waitUntil: 'networkidle' });
+            const innerWidth = await mobile.evaluate(() => window.innerWidth);
+            assert(innerWidth >= 1190 && innerWidth <= 1210, `mobile: expected ~1200 CSS viewport, got ${innerWidth}`);
+            await verifyPage(mobile, 'mobile desktop-style viewport');
+            await mobile.screenshot({ path: 'three-panel-mobile.png', fullPage: true });
+
+            await mobileContext.close();
+            await browser.close();
+          })().catch(err => { console.error(err); process.exit(1); });
+          NODE
+
+      - name: Save verification screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: three-panel-layout-verification
+          path: |
+            three-panel-desktop.png
+            three-panel-mobile.png
+
+      - name: Commit verified source changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.tsx src/components/LeadsRail.tsx src/components/LeadDetailPanel.tsx
+          git diff --cached --check
+          git commit -m "Set leads to 460px and split CRM panels evenly"
+          git push origin HEAD:main
