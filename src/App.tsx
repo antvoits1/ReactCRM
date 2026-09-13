@@ -5,6 +5,7 @@ import type { ActivePage } from './lib/navigation';
 import NavRail from './components/NavRail';
 import LeadsRail from './components/LeadsRail';
 import LeadDetailPanel from './components/LeadDetailPanel';
+import IOSCommPanel from './components/IOSCommPanel';
 import MessagesView from './components/MessagesView';
 import StatementViewerOverlay from './components/StatementViewerOverlay';
 import DialerBanner from './components/DialerBanner';
@@ -91,6 +92,7 @@ export default function App() {
               onOpenMessages={openMessages}
               setViewerDocIndex={setViewerDocIndex}
             />
+            <IOSCommPanel lead={lead} preferredMobile={messageNumber} />
           </>
         )}
 
