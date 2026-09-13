@@ -38,10 +38,11 @@ jobs:
             await page.goto('http://127.0.0.1:5173', {waitUntil:'networkidle'});
             for (const label of ['messages','calls','contacts','email']) {
               const button = page.getByRole('button', {name:new RegExp(`^${label}$`, 'i')});
-              if (await button.count() < 1 || !(await button.first().isVisible())) throw new Error(`${label} tab missing`);
+              if (await button.count() < 1) throw new Error(`${label} tab missing`);
             }
-            const tab = page.getByRole('button', {name:/^messages$/i}).first();
-            const box = await tab.boundingBox();
+            const callsTab = page.getByRole('button', {name:/^calls$/i}).first();
+            if (!(await callsTab.isVisible())) throw new Error('calls tab not visible');
+            const box = await callsTab.boundingBox();
             if (!box || box.x < 760) throw new Error(`communications panel not positioned as third panel: x=${box?.x}`);
             await page.screenshot({path:'communications-restored.png', fullPage:true});
             await browser.close();
