@@ -1,275 +1,176 @@
-import { Fragment, useMemo, useRef, useState } from 'react';
-import {
-  Video, Info, Plus, ArrowUp,
-  Mic, Camera, ArrowLeft, PhoneIncoming, PhoneOutgoing,
-  MessageSquareText, Search, ChevronDown, Reply
-} from 'lucide-react';
-import { Lead } from '../data';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Mail, MessageCircle, MessageSquareText, Phone, PhoneIncoming, PhoneOutgoing, Reply, Search, Send, SquarePen } from 'lucide-react';
+import type { Lead, CallEntry, MailEntry } from '../data';
+import type { CommTab } from '../store';
+import { digitsOnly, newestByTime, oldestByTime, whatsappHref } from '../lib/comm';
 
-interface IOSCommPanelProps {
+interface Props {
   lead?: Lead;
+  contacts?: Lead[];
   onBack?: () => void;
   fullWidth?: boolean;
   preferredMobile?: string;
+  defaultTab?: CommTab;
+  openThreadOnLoad?: boolean;
+  onSelectLead?: (id: string) => void;
+  onCall?: (number: string) => void;
+  onPreferredMobileChange?: (number: string) => void;
 }
 
-function digitsOnly(value: string): string {
-  return value.replace(/[^\d+]/g, '');
+type AllRow = {
+  key: string;
+  lead: Lead;
+  type: 'sms' | 'wa' | 'call' | 'email';
+  title: string;
+  detail: string;
+  when: string;
+  entry?: CallEntry | MailEntry;
+};
+
+function TypeIcon({ type, size = 14 }: { type: AllRow['type']; size?: number }) {
+  if (type === 'call') return <Phone size={size} strokeWidth={1.75}/>;
+  if (type === 'email') return <Mail size={size} strokeWidth={1.75}/>;
+  if (type === 'wa') return <MessageCircle size={size} strokeWidth={1.75}/>;
+  return <MessageSquareText size={size} strokeWidth={1.75}/>;
 }
 
-export default function IOSCommPanel({ lead, onBack, fullWidth = false, preferredMobile }: IOSCommPanelProps) {
-  const [activeTab, setActiveTab] = useState<'messages' | 'calls' | 'contacts' | 'email'>('messages');
-  const [inputText, setInputText] = useState('');
-  const [replyText, setReplyText] = useState('');
+export default function IOSCommPanel({
+  lead, contacts = [], onBack, fullWidth = false, preferredMobile, defaultTab = 'all', openThreadOnLoad = false,
+  onSelectLead, onCall, onPreferredMobileChange,
+}: Props) {
+  const pool = contacts.length ? contacts : (lead ? [lead] : []);
+  const [activeTab, setActiveTab] = useState<CommTab>(defaultTab);
+  const [messageLeadId, setMessageLeadId] = useState<string | null>(null);
+  const [messageChannel, setMessageChannel] = useState<'sms' | 'wa'>('sms');
+  const [messageText, setMessageText] = useState('');
   const [contactSearch, setContactSearch] = useState('');
+  const [openContactId, setOpenContactId] = useState<string | null>(null);
+  const [openCall, setOpenCall] = useState<{ lead: Lead; entry: CallEntry; key: string } | null>(null);
+  const [emailLeadId, setEmailLeadId] = useState<string | null>(null);
+  const [openEmailKey, setOpenEmailKey] = useState<string | null>(null);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
   const replyRef = useRef<HTMLTextAreaElement>(null);
 
-  const contactName = lead?.contact || 'Unknown Contact';
-  const contactEmail = lead?.emails[0]?.n || '';
-  const contactMobile = (preferredMobile && lead?.mobiles.some(p => p.n === preferredMobile)) ? preferredMobile : (lead?.mobiles[0]?.n || '');
+  useEffect(() => {
+    setActiveTab(defaultTab);
+    setOpenContactId(null); setOpenCall(null); setEmailLeadId(null); setOpenEmailKey(null); setEmailSubject(''); setEmailBody('');
+    if (!openThreadOnLoad) setMessageLeadId(null);
+  }, [defaultTab, openThreadOnLoad]);
+  useEffect(() => {
+    if (openThreadOnLoad && defaultTab === 'messages' && lead?.id) setMessageLeadId(lead.id);
+  }, [openThreadOnLoad, defaultTab, lead?.id]);
 
-  const messages = useMemo(() => (
-    lead?.sms.map(msg => ({
-      from: msg.dir === 'out' ? 'me' as const : 'them' as const,
-      text: msg.txt,
-      time: msg.t,
-    })) ?? []
-  ), [lead]);
+  const chooseLead = (item: Lead) => {
+    onSelectLead?.(item.id);
+    const mobile = item.mobiles?.[0]?.n || '';
+    if (mobile) onPreferredMobileChange?.(mobile);
+  };
 
-  const emailThread = useMemo(() => (
-    lead?.mails.map(mail => ({
-      from: mail.from,
-      fromMe: mail.from.toLowerCase().includes('cole') || mail.from.toLowerCase().includes('avery') || mail.from.toLowerCase().includes('maya'),
-      subject: mail.sub,
-      time: mail.when,
-      body: mail.preview,
-    })) ?? []
-  ), [lead]);
+  const messageConversations = useMemo(() => newestByTime(pool.filter(item => item.sms?.length), item => newestByTime(item.sms || [], msg => msg.t)[0]?.t || item.lastAgo), [pool]);
+  const currentMessageLead = pool.find(item => item.id === messageLeadId) || null;
+  const currentMobile = currentMessageLead
+    ? ((preferredMobile && currentMessageLead.mobiles?.some(p => p.n === preferredMobile)) ? preferredMobile : (currentMessageLead.mobiles?.[0]?.n || ''))
+    : '';
+  const threadMessages = useMemo(() => currentMessageLead ? oldestByTime(currentMessageLead.sms || [], msg => msg.t) : [], [currentMessageLead]);
 
-  const filteredContacts = useMemo(() => {
-    if (!lead) return [];
-    const rows = [
-      ...lead.mobiles.map(p => ({ kind: p.l, value: p.n })),
-      ...lead.landlines.map(p => ({ kind: p.l, value: p.n })),
-      ...lead.emails.map(p => ({ kind: p.l, value: p.n })),
-    ];
+  const allItems = useMemo<AllRow[]>(() => {
+    const rows: AllRow[] = [];
+    pool.forEach(item => {
+      (item.sms || []).forEach((entry,index) => rows.push({ key:`${item.id}-sms-${index}`, lead:item, type:entry.ch === 'wa' ? 'wa' : 'sms', title:item.contact, detail:entry.txt, when:entry.t }));
+      (item.calls || []).forEach((entry,index) => rows.push({ key:`${item.id}-call-${index}`, lead:item, type:'call', title:entry.who || item.contact, detail:`${entry.dir === 'in' ? 'Incoming' : 'Outgoing'} · ${entry.dur}`, when:entry.when, entry }));
+      (item.mails || []).forEach((entry,index) => rows.push({ key:`${item.id}-mail-${index}`, lead:item, type:'email', title:entry.sub, detail:entry.preview, when:entry.when, entry }));
+    });
+    return newestByTime(rows, row => row.when).slice(0,40);
+  }, [pool]);
+  const callItems = useMemo(() => newestByTime(pool.flatMap(item => (item.calls || []).map((entry,index) => ({ key:`${item.id}-call-${index}`, lead:item, entry, when:entry.when }))), row => row.when), [pool]);
+  const emailItems = useMemo(() => newestByTime(pool.flatMap(item => (item.mails || []).map((entry,index) => ({ key:`${item.id}-mail-${index}`, lead:item, entry, when:entry.when }))), row => row.when), [pool]);
+  const contactBook = useMemo(() => {
     const q = contactSearch.trim().toLowerCase();
-    return q ? rows.filter(row => `${row.kind} ${row.value}`.toLowerCase().includes(q)) : rows;
-  }, [lead, contactSearch]);
+    return [...pool].filter(item => !q || `${item.contact} ${item.company} ${(item.mobiles||[]).map(p=>p.n).join(' ')} ${(item.emails||[]).map(p=>p.n).join(' ')}`.toLowerCase().includes(q)).sort((a,b) => a.contact.localeCompare(b.contact));
+  }, [pool, contactSearch]);
+  const groupedContacts = useMemo(() => {
+    const groups = new Map<string,Lead[]>();
+    contactBook.forEach(item => { const letter = item.contact.trim().charAt(0).toUpperCase() || '#'; groups.set(letter, [...(groups.get(letter) || []), item]); });
+    return Array.from(groups.entries());
+  }, [contactBook]);
 
-  const openSmsComposer = () => {
-    const text = inputText.trim();
-    if (!contactMobile || !text) return;
-    window.location.href = `sms:${digitsOnly(contactMobile)}?body=${encodeURIComponent(text)}`;
+  const openContact = pool.find(item => item.id === openContactId) || null;
+  const activeEmailLead = pool.find(item => item.id === emailLeadId) || lead || pool[0] || null;
+  const activeEmail = openEmailKey ? emailItems.find(item => item.key === openEmailKey) : null;
+
+  const openMessageThread = (item: Lead, channel: 'sms' | 'wa' = 'sms') => {
+    chooseLead(item); setActiveTab('messages'); setMessageLeadId(item.id); setMessageChannel(channel); setMessageText('');
+  };
+  const sendMessage = () => {
+    const text = messageText.trim();
+    if (!currentMobile || !text) return;
+    if (messageChannel === 'wa') window.open(whatsappHref(currentMobile, text), '_blank', 'noopener,noreferrer');
+    else window.location.href = `sms:${digitsOnly(currentMobile)}?body=${encodeURIComponent(text)}`;
+  };
+  const openEmailComposer = (item: Lead, mailKey: string | null = null, reply = false) => {
+    const found = mailKey ? emailItems.find(row => row.key === mailKey) : null;
+    chooseLead(item); setActiveTab('email'); setEmailLeadId(item.id); setOpenEmailKey(mailKey);
+    const subject = found?.entry.sub || '';
+    setEmailSubject(reply && subject ? (subject.startsWith('Re:') ? subject : `Re: ${subject}`) : subject);
+    setEmailBody(''); setTimeout(() => replyRef.current?.focus(), 0);
+  };
+  const sendEmail = () => {
+    const email = activeEmailLead?.emails?.[0]?.n || '';
+    const body = emailBody.trim();
+    if (!email || !body) return;
+    window.location.href = `mailto:${email}?subject=${encodeURIComponent(emailSubject.trim())}&body=${encodeURIComponent(body)}`;
+  };
+  const openAllItem = (item: AllRow) => {
+    chooseLead(item.lead);
+    if (item.type === 'sms' || item.type === 'wa') openMessageThread(item.lead, item.type);
+    else if (item.type === 'call' && item.entry) { setActiveTab('calls'); setOpenCall({ lead:item.lead, entry:item.entry as CallEntry, key:item.key }); }
+    else openEmailComposer(item.lead, item.key, false);
+  };
+  const changeTab = (tab: CommTab) => {
+    setActiveTab(tab);
+    if (tab === 'messages') setMessageLeadId(null);
+    if (tab === 'calls') setOpenCall(null);
+    if (tab === 'contacts') setOpenContactId(null);
+    if (tab === 'email') { setEmailLeadId(null); setOpenEmailKey(null); setEmailSubject(''); setEmailBody(''); }
   };
 
-  const openEmailComposer = () => {
-    const text = replyText.trim();
-    if (!contactEmail || !text) return;
-    const subject = emailThread[0]?.subject?.startsWith('Re:') ? emailThread[0].subject : `Re: ${emailThread[0]?.subject || 'Follow-up'}`;
-    window.location.href = `mailto:${contactEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
-  };
+  const displayTitle = activeTab === 'messages' && currentMessageLead ? currentMessageLead.contact
+    : activeTab === 'contacts' && openContact ? openContact.contact
+    : activeTab === 'calls' && openCall ? openCall.lead.contact
+    : activeTab === 'email' && activeEmailLead && (openEmailKey || emailLeadId) ? activeEmailLead.contact
+    : activeTab === 'all' ? (lead?.contact || 'Communications')
+    : activeTab.charAt(0).toUpperCase() + activeTab.slice(1);
 
   return (
-    <div className={`flex flex-col h-full bg-white ${fullWidth ? 'w-full' : 'w-full max-w-[400px] overflow-hidden'}`}>
-      <div className="h-[68px] bg-white/80 backdrop-blur-xl border-b border-slate-200 flex items-center px-4 justify-between flex-shrink-0 z-20">
-        <div className="flex items-center gap-2">
-          {onBack ? (
-            <button type="button" onClick={onBack} className="text-[#007AFF] flex items-center font-medium text-[calc(15px+var(--font-offset))]">
-              <ArrowLeft size={22} className="mr-1" /> Back
-            </button>
-          ) : (
-            <div className="flex items-center text-[#007AFF] text-[calc(15px+var(--font-offset))]">
-              <MessageSquareText size={22} className="mr-1" />
-            </div>
-          )}
-        </div>
+    <div className={`comm-panel ${fullWidth ? 'full' : ''}`}>
+      <header className="comm-head">
+        <div className="comm-head-side">{onBack && <button type="button" onClick={onBack} className="comm-back"><ArrowLeft size={15}/> Back</button>}</div>
+        <div className="comm-head-title"><strong>{displayTitle}</strong>{activeTab === 'all' && lead?.company && <span>{lead.company}</span>}</div>
+        <div className="comm-head-side end">{activeTab === 'email' && <button type="button" className="comm-icon-button" title="Compose email" onClick={() => lead && openEmailComposer(lead)}><SquarePen size={16}/></button>}</div>
+      </header>
 
-        {activeTab === 'email' ? (
-          <div className="flex flex-col items-center justify-center -ml-4">
-            <div className="text-[calc(15px+var(--font-offset))] font-bold text-slate-900 leading-tight">Inbox</div>
-            <div className="text-[calc(11px+var(--font-offset))] font-medium text-slate-500">Lead email history</div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center -ml-4">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-b from-slate-300 to-slate-400 flex items-center justify-center text-white text-xs font-bold shadow-sm mb-1">
-              {contactName.split(' ').map(n => n[0]).join('').substring(0, 2)}
-            </div>
-            <div className="text-[calc(10px+var(--font-offset))] font-medium text-slate-900">{contactName}</div>
-          </div>
-        )}
+      <div className="comm-tab-wrap"><nav className="comm-tabs">{(['all','messages','calls','contacts','email'] as CommTab[]).map(tab => <button key={tab} type="button" className={activeTab === tab ? 'active' : ''} onClick={() => changeTab(tab)}>{tab === 'calls' ? 'Calls' : tab.charAt(0).toUpperCase()+tab.slice(1)}</button>)}</nav></div>
 
-        <div className="flex items-center gap-4 text-[#007AFF]">
-          {activeTab === 'email' ? (
-            <button type="button" onClick={() => replyRef.current?.focus()} title="Reply"><Plus size={24} strokeWidth={1.5} /></button>
-          ) : (
-            <>
-              <button type="button" disabled title="Video calling requires a connected communications service" className="opacity-35 cursor-not-allowed"><Video size={24} strokeWidth={1.5} /></button>
-              <button type="button" onClick={() => setActiveTab('contacts')} title="Contact info"><Info size={24} strokeWidth={1.5} /></button>
-            </>
-          )}
-        </div>
+      <div className="comm-scroll">
+        {activeTab === 'all' && <div className="comm-list"><div className="comm-list-label">Latest communications</div>{!allItems.length && <div className="comm-empty">No communications on file.</div>}{allItems.map(item => <button type="button" key={item.key} className="comm-row" onClick={() => openAllItem(item)}><span className="comm-type-icon"><TypeIcon type={item.type}/></span><span className="comm-row-copy"><span className="comm-row-top"><strong>{item.title}</strong><time>{item.when}</time></span><span className="comm-row-sub">{item.lead.company}</span><span className="comm-row-detail">{item.detail}</span></span></button>)}</div>}
+
+        {activeTab === 'messages' && !currentMessageLead && <div className="comm-list"><div className="comm-list-label">Messages</div>{!messageConversations.length && <div className="comm-empty">No message threads found.</div>}{messageConversations.map(item => { const latest = newestByTime(item.sms || [], msg => msg.t)[0]; const type = latest?.ch === 'wa' ? 'wa' : 'sms'; return <button type="button" className="comm-row" key={item.id} onClick={() => openMessageThread(item,type)}><span className="comm-type-icon"><TypeIcon type={type}/></span><span className="comm-row-copy"><span className="comm-row-top"><strong>{item.contact}</strong><time>{latest?.t || item.lastAgo}</time></span><span className="comm-row-sub">{item.company}</span><span className="comm-row-detail">{latest?.txt || 'No messages'}</span></span></button>; })}</div>}
+
+        {activeTab === 'messages' && currentMessageLead && <div className="comm-thread-view"><div className="comm-thread-toolbar"><button type="button" className="comm-contact-back" onClick={() => setMessageLeadId(null)}><ArrowLeft size={14}/> Messages</button><span className="comm-thread-channel"><TypeIcon type={messageChannel}/>{messageChannel === 'wa' ? 'WhatsApp' : 'SMS'}</span></div><div className="comm-thread">{threadMessages.map((msg,index) => { const mine = msg.dir === 'out'; const type = msg.ch === 'wa' ? 'wa' : 'sms'; return <Fragment key={`${msg.t}-${index}`}><div className={`comm-bubble ${mine ? 'out' : 'in'}`}><span className="comm-bubble-channel"><TypeIcon type={type} size={10}/></span><span>{msg.txt}</span></div><div className={`comm-bubble-time ${mine ? 'out' : 'in'}`}>{msg.t}</div></Fragment>; })}</div></div>}
+
+        {activeTab === 'calls' && !openCall && <div className="comm-list"><div className="comm-list-label">Recent calls</div>{!callItems.length && <div className="comm-empty">No calls on file.</div>}{callItems.map(row => <button type="button" className="comm-row" key={row.key} onClick={() => { chooseLead(row.lead); setOpenCall(row); }}><span className="comm-type-icon">{row.entry.dir === 'out' ? <PhoneOutgoing size={14}/> : <PhoneIncoming size={14}/>}</span><span className="comm-row-copy"><span className="comm-row-top"><strong>{row.entry.who || row.lead.contact}</strong><time>{row.when}</time></span><span className="comm-row-sub">{row.lead.company}</span><span className="comm-row-detail">{row.entry.n} · {row.entry.dur}</span></span></button>)}</div>}
+        {activeTab === 'calls' && openCall && <div className="comm-detail-view"><button type="button" className="comm-contact-back" onClick={() => setOpenCall(null)}><ArrowLeft size={14}/> Calls</button><div className="comm-detail-card"><span className="comm-detail-kicker">{openCall.entry.dir === 'in' ? 'Incoming' : 'Outgoing'} call</span><strong>{openCall.entry.who || openCall.lead.contact}</strong><span>{openCall.lead.company}</span><div className="comm-detail-meta"><b>{openCall.entry.n}</b><span>{openCall.entry.when}</span><span>{openCall.entry.dur}</span></div>{openCall.entry.note && <p>{openCall.entry.note}</p>}<div className="comm-detail-actions"><button type="button" onClick={() => onCall?.(openCall.entry.n)} title="Call"><Phone size={14}/></button></div></div></div>}
+
+        {activeTab === 'contacts' && !openContact && <div className="comm-contacts"><label className="comm-search"><Search size={14}/><input value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="Search contacts"/></label><div className="comm-contact-book">{groupedContacts.map(([letter,items]) => <div className="comm-contact-group" key={letter}><div className="comm-contact-letter">{letter}</div>{items.map(item => <button type="button" className="comm-contact-row" key={item.id} onClick={() => { chooseLead(item); setOpenContactId(item.id); }}><span><strong>{item.contact}</strong><small>{item.company}</small></span><em>{item.mobiles?.[0]?.n || item.emails?.[0]?.n || ''}</em></button>)}</div>)}</div></div>}
+        {activeTab === 'contacts' && openContact && <div className="comm-contact-detail"><button type="button" className="comm-contact-back" onClick={() => setOpenContactId(null)}><ArrowLeft size={14}/> Contacts</button><div className="comm-contact-detail-head"><strong>{openContact.contact}</strong><span>{openContact.company}</span><div className="comm-contact-actions">{openContact.mobiles?.[0]?.n && <><button type="button" onClick={() => onCall?.(openContact.mobiles[0].n)} title="Call"><Phone size={14}/></button><button type="button" onClick={() => openMessageThread(openContact,'sms')} title="SMS"><MessageSquareText size={14}/></button><a href={whatsappHref(openContact.mobiles[0].n)} target="_blank" rel="noreferrer" title="WhatsApp"><MessageCircle size={14}/></a></>}{openContact.emails?.[0]?.n && <a href={`mailto:${openContact.emails[0].n}`} title="Email"><Mail size={14}/></a>}</div></div><div className="comm-contact-detail-list">{openContact.mobiles.map((phone,index) => <div className="comm-contact-detail-row" key={`${phone.n}-${index}`}><span><small>{phone.l}</small><strong>{phone.n}</strong></span><div className="comm-mini-actions"><button type="button" onClick={() => onCall?.(phone.n)}><Phone size={13}/></button><button type="button" onClick={() => { onPreferredMobileChange?.(phone.n); openMessageThread(openContact,'sms'); }}><MessageSquareText size={13}/></button><a href={whatsappHref(phone.n)} target="_blank" rel="noreferrer"><MessageCircle size={13}/></a></div></div>)}{openContact.landlines.map((phone,index) => <div className="comm-contact-detail-row" key={`${phone.n}-${index}`}><span><small>{phone.l}</small><strong>{phone.n}</strong></span><div className="comm-mini-actions"><button type="button" onClick={() => onCall?.(phone.n)}><Phone size={13}/></button></div></div>)}{openContact.emails.map((email,index) => <div className="comm-contact-detail-row" key={`${email.n}-${index}`}><span><small>{email.l}</small><strong>{email.n}</strong></span><div className="comm-mini-actions"><a href={`mailto:${email.n}`}><Mail size={13}/></a></div></div>)}</div></div>}
+
+        {activeTab === 'email' && !(openEmailKey || emailLeadId) && <div className="comm-list"><div className="comm-list-label comm-list-label-row"><span>Email</span>{lead && <button type="button" className="comm-small-action" onClick={() => openEmailComposer(lead)} title="Compose email"><SquarePen size={14}/></button>}</div>{!emailItems.length && <div className="comm-empty">No email history on file.</div>}{emailItems.map(row => <button type="button" className="comm-row" key={row.key} onClick={() => openEmailComposer(row.lead,row.key,false)}><span className="comm-type-icon"><Mail size={14}/></span><span className="comm-row-copy"><span className="comm-row-top"><strong>{row.entry.sub}</strong><time>{row.when}</time></span><span className="comm-row-sub">{row.lead.contact} · {row.lead.company}</span><span className="comm-row-detail">{row.entry.preview}</span></span></button>)}</div>}
+        {activeTab === 'email' && (openEmailKey || emailLeadId) && <div className="comm-email-view"><div className="comm-thread-toolbar"><button type="button" className="comm-contact-back" onClick={() => { setOpenEmailKey(null); setEmailLeadId(null); setEmailSubject(''); setEmailBody(''); }}><ArrowLeft size={14}/> Email</button>{activeEmail && <button type="button" className="comm-small-action" onClick={() => openEmailComposer(activeEmail.lead,activeEmail.key,true)} title="Reply"><Reply size={14}/></button>}</div>{activeEmail && <article className="comm-email-open"><div className="comm-email-meta"><strong>{activeEmail.entry.from}</strong><time>{activeEmail.entry.when}</time></div><h3>{activeEmail.entry.sub}</h3><p>{activeEmail.entry.preview}</p></article>}{!activeEmail && <div className="comm-email-new-label">New email to {activeEmailLead?.contact || ''}</div>}</div>}
       </div>
 
-      <div className="flex justify-center p-2 bg-white border-b border-slate-200">
-        <div className="bg-[#F1F5F9] p-0.5 rounded-lg flex w-full max-w-[320px]">
-          {(['messages', 'calls', 'contacts', 'email'] as const).map(tab => (
-            <button
-              type="button"
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 text-[calc(12px+var(--font-offset))] font-semibold py-1 rounded-md transition-all capitalize ${activeTab === tab ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-900'}`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto bg-[#F2F2F7] flex flex-col relative">
-        {activeTab === 'messages' && (
-          <div className="flex-1 flex flex-col p-4 gap-4 pb-20 justify-end min-h-full">
-            <div className="text-center text-[calc(11px+var(--font-offset))] font-medium text-slate-400 my-4 uppercase tracking-wide">Lead message history</div>
-            {messages.length === 0 && <div className="text-center text-slate-400 text-sm my-auto">No messages on file.</div>}
-            {messages.map((msg, i) => (
-              <Fragment key={`${msg.time}-${i}`}>
-                <div className={`flex items-end gap-2 max-w-[85%] ${msg.from === 'me' ? 'self-end' : 'self-start'}`}>
-                  {msg.from === 'them' && (
-                    <div className="w-7 h-7 rounded-full bg-slate-300 flex-shrink-0 flex items-center justify-center text-white text-[calc(10px+var(--font-offset))] font-bold">{contactName.charAt(0)}</div>
-                  )}
-                  <div className={`px-4 py-2.5 rounded-2xl text-[calc(15px+var(--font-offset))] leading-relaxed ${msg.from === 'me' ? 'bg-[#007AFF] text-white rounded-br-sm shadow-sm' : 'bg-[#E5E5EA] text-slate-900 rounded-bl-sm'}`}>{msg.text}</div>
-                </div>
-                <div className={`text-[calc(11px+var(--font-offset))] text-slate-400 -mt-3 ${msg.from === 'me' ? 'text-right pr-2' : 'text-left pl-9'}`}>{msg.time}</div>
-              </Fragment>
-            ))}
-          </div>
-        )}
-
-        {activeTab === 'calls' && (
-          <div className="flex-1 flex flex-col bg-white">
-            <h1 className="text-[calc(28px+var(--font-offset))] font-bold px-4 pt-4 pb-2 text-slate-900">Recent</h1>
-            <div className="flex-1 overflow-y-auto px-4 divide-y divide-black/5">
-              {(lead?.calls ?? []).length === 0 && <div className="py-10 text-center text-slate-400">No calls on file.</div>}
-              {(lead?.calls ?? []).map((call, i) => (
-                <div key={`${call.when}-${i}`} className="py-3 flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    {call.dir === 'out' ? <PhoneOutgoing className="text-slate-400" size={18} /> : <PhoneIncoming className="text-slate-400" size={18} />}
-                    <div>
-                      <div className="text-[calc(16px+var(--font-offset))] font-semibold text-slate-900">{call.who}</div>
-                      <div className="text-[calc(13px+var(--font-offset))] text-slate-500 mt-0.5">{call.n} · {call.dur}</div>
-                    </div>
-                  </div>
-                  <span className="text-[calc(14px+var(--font-offset))] text-slate-500">{call.when}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'contacts' && (
-          <div className="flex-1 flex flex-col bg-white">
-            <div className="px-4 py-2">
-              <div className="bg-[#767680]/10 rounded-xl px-3 py-1.5 flex items-center gap-2">
-                <Search size={16} className="text-slate-500" />
-                <input
-                  type="text"
-                  value={contactSearch}
-                  onChange={e => setContactSearch(e.target.value)}
-                  placeholder="Search"
-                  className="bg-transparent border-none outline-none text-[calc(15px+var(--font-offset))] w-full text-slate-900 placeholder:text-slate-500"
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-4 px-4 py-3 border-b border-slate-200">
-              <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center shadow-sm text-[#007AFF] text-xs font-bold">Forge</div>
-              <div>
-                <h2 className="text-[calc(22px+var(--font-offset))] font-semibold text-slate-900">{contactName}</h2>
-                <div className="text-[calc(14px+var(--font-offset))] text-slate-500">{lead?.company ?? 'Lead contact'}</div>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto px-4 mt-2">
-              {filteredContacts.map((row, i) => (
-                <div key={`${row.kind}-${row.value}-${i}`} className="py-2.5 border-b border-slate-200">
-                  <div className="text-[calc(12px+var(--font-offset))] text-slate-500">{row.kind}</div>
-                  <div className="text-[calc(16px+var(--font-offset))] text-slate-900 font-medium mt-0.5">{row.value}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'email' && (
-          <div className="flex-1 flex flex-col bg-white">
-            <div className="px-4 py-2 border-b border-slate-200 bg-white text-[calc(13px+var(--font-offset))] font-medium text-slate-500">To: {contactName}</div>
-            <div className="flex-1 overflow-y-auto">
-              {emailThread.length === 0 && <div className="py-10 text-center text-slate-400">No email history on file.</div>}
-              {emailThread.map((mail, i) => (
-                <div key={`${mail.time}-${i}`} className="p-4 border-b border-slate-200">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${mail.fromMe ? 'bg-[#007AFF] text-white' : 'bg-blue-100 text-[#007AFF]'}`}>{mail.from.charAt(0).toUpperCase()}</div>
-                      <div>
-                        <div className="font-semibold text-[calc(15px+var(--font-offset))] text-slate-900">{mail.fromMe ? 'You' : mail.from}</div>
-                        <div className="text-[calc(13px+var(--font-offset))] text-slate-500">{mail.fromMe ? `To: ${contactEmail}` : 'Lead email'}</div>
-                      </div>
-                    </div>
-                    <div className="text-[calc(13px+var(--font-offset))] text-slate-500 flex items-center gap-3">{mail.time} <Reply size={16} className="text-slate-400" /></div>
-                  </div>
-                  <h3 className="font-semibold text-[calc(15px+var(--font-offset))] text-slate-900 mt-2 mb-1">{mail.subject}</h3>
-                  <p className="text-[calc(15px+var(--font-offset))] text-slate-900 leading-relaxed whitespace-pre-line">{mail.body}</p>
-                </div>
-              ))}
-            </div>
-            <div className="p-4 border-t border-slate-200 bg-white">
-              <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
-                <div className="text-[calc(14px+var(--font-offset))] text-slate-500">From:</div>
-                <button type="button" disabled className="flex items-center gap-1 text-[calc(14px+var(--font-offset))] text-slate-900 font-medium cursor-default">sales@forgecrm.com <ChevronDown size={14} className="text-slate-400" /></button>
-              </div>
-              <textarea
-                ref={replyRef}
-                value={replyText}
-                onChange={e => setReplyText(e.target.value)}
-                placeholder="Reply..."
-                className="w-full text-[calc(15px+var(--font-offset))] resize-none outline-none h-24 placeholder:text-slate-400 text-slate-900"
-              />
-              <div className="flex justify-between items-center mt-2">
-                <button type="button" disabled title="Attachments require an email integration" className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 cursor-not-allowed opacity-60"><Plus size={18} /></button>
-                <button
-                  type="button"
-                  onClick={openEmailComposer}
-                  disabled={!replyText.trim() || !contactEmail}
-                  title="Open your email app"
-                  className="px-4 py-1.5 rounded-full bg-[#007AFF] text-white font-semibold text-[calc(14px+var(--font-offset))] shadow-sm hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Open Email
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {activeTab === 'messages' && (
-        <div className="bg-white border-t border-slate-200 px-3 py-2 pb-6 flex items-end gap-3 z-10 flex-shrink-0">
-          <button type="button" disabled title="Attachments require a messaging integration" className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 flex-shrink-0 mb-1 cursor-not-allowed opacity-60"><Plus size={20} strokeWidth={2.5} /></button>
-          <div className="flex-1 bg-white border border-slate-200 rounded-2xl flex items-end px-3 py-1.5 min-h-[36px]">
-            <textarea
-              value={inputText}
-              onChange={e => setInputText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); openSmsComposer(); } }}
-              placeholder="Message"
-              className="flex-1 bg-transparent outline-none resize-none text-[calc(15px+var(--font-offset))] max-h-[100px] py-0.5 placeholder:text-slate-400"
-              rows={1}
-            />
-            {inputText.trim().length === 0 && <button type="button" disabled title="Voice messages require a messaging integration" className="text-slate-400 p-0.5 mb-0.5 ml-1 cursor-not-allowed opacity-60"><Mic size={20} /></button>}
-          </div>
-          {inputText.trim().length > 0 ? (
-            <button type="button" onClick={openSmsComposer} title="Open Messages app" className="w-8 h-8 rounded-full bg-[#007AFF] flex items-center justify-center text-white shadow-sm flex-shrink-0 mb-1 transition-transform active:scale-95"><ArrowUp size={18} strokeWidth={3} /></button>
-          ) : (
-            <button type="button" disabled title="Camera requires a messaging integration" className="w-8 h-8 rounded-full text-[#007AFF] flex items-center justify-center flex-shrink-0 mb-1 cursor-not-allowed opacity-40"><Camera size={26} strokeWidth={1.5} /></button>
-          )}
-        </div>
-      )}
+      {activeTab === 'messages' && currentMessageLead && <div className="comm-composer"><button type="button" className="comm-channel-toggle" onClick={() => setMessageChannel(c => c === 'sms' ? 'wa' : 'sms')} title="Switch channel"><TypeIcon type={messageChannel}/></button><textarea value={messageText} onChange={e => setMessageText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder={messageChannel === 'wa' ? 'WhatsApp message' : 'Message'} rows={1}/><button type="button" onClick={sendMessage} disabled={!messageText.trim() || !currentMobile} title="Send" className="comm-send"><Send size={15}/></button></div>}
+      {activeTab === 'email' && (openEmailKey || emailLeadId) && <div className="comm-email-compose"><div className="comm-email-address-row"><span>To</span><strong>{activeEmailLead?.emails?.[0]?.n || 'No email'}</strong></div><label className="comm-email-subject"><span>Subject</span><input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} placeholder="Subject"/></label><textarea ref={replyRef} value={emailBody} onChange={e => setEmailBody(e.target.value)} placeholder={activeEmail ? 'Reply…' : 'Write email…'}/><div className="comm-email-actions"><span className="comm-email-from">sales@forgecrm.com</span><button type="button" onClick={sendEmail} disabled={!emailBody.trim() || !activeEmailLead?.emails?.[0]?.n} className="comm-send"><Send size={14}/></button></div></div>}
     </div>
   );
 }
