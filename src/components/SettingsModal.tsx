@@ -1,84 +1,51 @@
-import { SETTINGS_FONTS, THEME_COLORS, SIDEBAR_COLORS } from '../lib/theme-options';
-import { ThemeSettings } from '../store';
+import { Minus, Plus } from 'lucide-react';
+import { CANVAS_COLORS, NAV_COLORS, type UISettings } from '../store';
 
-interface SettingsModalProps {
-  theme: ThemeSettings;
-  setTheme: (theme: Partial<ThemeSettings>) => void;
+interface Props {
+  settings: UISettings;
+  setSetting: <K extends keyof UISettings>(key: K, value: UISettings[K]) => void;
+  onResetPanels: () => void;
   onClose: () => void;
 }
-
-export default function SettingsModal({ theme, setTheme, onClose }: SettingsModalProps) {
-  const { fontFamily, uiScale, bgCanvas, bgConsole, fontOffset } = theme;
-
+function ColorPicker({ value, colors, onChange }: { value: string; colors: string[]; onChange: (value: string) => void }) {
+  return <div className="settings-color-grid" role="radiogroup">{colors.map(color => <button key={color} type="button" className={`settings-color-swatch ${value.toUpperCase() === color.toUpperCase() ? 'active' : ''}`} style={{ backgroundColor: color }} onClick={() => onChange(color)} title={color} aria-label={`Use ${color}`} aria-checked={value.toUpperCase() === color.toUpperCase()} role="radio"/>)}</div>;
+}
+export default function SettingsModal({ settings, setSetting, onResetPanels, onClose }: Props) {
+  const changeFont = (delta: number) => setSetting('fontSize', Math.max(14.5, Math.min(20, settings.fontSize + delta)));
   return (
-    <div
-      className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-6"
-      onClick={onClose}
-    >
-      <div
-        className="bg-[var(--bg-canvas)] w-full max-w-md rounded-lg shadow-2xl flex flex-col border border-slate-200"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="h-16 flex items-center px-6 border-b border-slate-200 bg-slate-50 rounded-t-lg">
-          <h2 className="font-bold text-[calc(15px+var(--font-offset))] text-slate-900">Advanced Settings</h2>
-        </div>
-        <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
-
-          <div>
-            <label className="block text-[calc(11px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-2">Typography</label>
-            <select
-              className="w-full border border-slate-200 rounded-lg p-3 text-[calc(14px+var(--font-offset))] bg-slate-50 outline-none text-slate-900 font-medium shadow-sm hover:border-black/20 hover:bg-slate-100 transition-colors"
-              value={fontFamily}
-              onChange={e => setTheme({ fontFamily: e.target.value })}
-            >
-              {SETTINGS_FONTS.map(f => <option key={f.name} value={f.val}>{f.name}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[calc(11px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-2">UI Scale (Ultrawide)</label>
-            <input
-              type="range" min="0.75" max="1.5" step="0.05"
-              value={uiScale}
-              onChange={e => setTheme({ uiScale: parseFloat(e.target.value) })}
-              className="w-full accent-slate-800"
-            />
-            <div className="text-right text-[calc(12px+var(--font-offset))] text-slate-500 mt-1 font-medium">{Math.round(uiScale * 100)}%</div>
-          </div>
-
-          <div>
-            <label className="block text-[calc(11px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-2">Main Background Color</label>
-            <select
-              className="w-full border border-slate-200 rounded-lg p-3 text-[calc(14px+var(--font-offset))] bg-slate-50 outline-none text-slate-900 font-medium shadow-sm hover:border-slate-300 transition-colors mb-4"
-              value={bgCanvas}
-              onChange={e => setTheme({ bgCanvas: e.target.value })}
-            >
-              {THEME_COLORS.map(c => <option key={c.name} value={c.val}>{c.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[calc(11px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-2">Sidebar & Dialer Background</label>
-            <select
-              className="w-full border border-slate-200 rounded-lg p-3 text-[calc(14px+var(--font-offset))] bg-slate-50 outline-none text-slate-900 font-medium shadow-sm hover:border-slate-300 transition-colors"
-              value={bgConsole}
-              onChange={e => setTheme({ bgConsole: e.target.value })}
-            >
-              {SIDEBAR_COLORS.map(c => <option key={c.name} value={c.val}>{c.name}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[calc(11px+var(--font-offset))] font-bold uppercase tracking-wider text-slate-500 mb-2">Global Font Scaler</label>
-            <div className="flex items-center gap-4">
-              <button onClick={() => setTheme({ fontOffset: Math.max(-4, fontOffset - 0.5) })} className="w-12 h-10 border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 font-bold text-slate-900 shadow-sm transition-colors">-</button>
-              <span className="text-[calc(14px+var(--font-offset))] font-bold font-mono text-slate-900 w-16 text-center">{fontOffset > 0 ? '+' : ''}{fontOffset}px</span>
-              <button onClick={() => setTheme({ fontOffset: Math.min(20, fontOffset + 0.5) })} className="w-12 h-10 border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 font-bold text-slate-900 shadow-sm transition-colors">+</button>
-            </div>
-            <div className="text-[calc(11px+var(--font-offset))] text-slate-500 mt-2">Scales all text up or down by 0.5px increments.</div>
-          </div>
-
+    <div className="settings-overlay" onClick={onClose}>
+      <div className="settings-modal" onClick={e => e.stopPropagation()}>
+        <div className="settings-head"><h2>Advanced Settings</h2><button type="button" onClick={onClose} aria-label="Close settings">×</button></div>
+        <div className="settings-scroll">
+          <Setting label="Screen Scale" help="Auto chooses the layout for the screen. Ultra-Wide is tuned for a 32-inch display.">
+            <select value={settings.screenScale} onChange={e => setSetting('screenScale', e.target.value as UISettings['screenScale'])}><option value="auto">Auto (Recommended)</option><option value="standard">Standard</option><option value="wide">Wide</option><option value="ultra">Ultra-Wide</option></select>
+          </Setting>
+          <Setting label="Font / Icon Size" help="Inter is used everywhere. Each click changes the full CRM by 0.5px.">
+            <div className="settings-stepper"><button type="button" onClick={() => changeFont(-0.5)} disabled={settings.fontSize <= 14.5}><Minus size={16}/></button><strong>{settings.fontSize.toFixed(1)} px</strong><button type="button" onClick={() => changeFont(0.5)} disabled={settings.fontSize >= 20}><Plus size={16}/></button></div>
+          </Setting>
+          <Setting label="Navigation Style" help="Topbar stays visible. Choose a wide sidebar or a compact icon bar.">
+            <select value={settings.navMode} onChange={e => setSetting('navMode', e.target.value as UISettings['navMode'])}><option value="sidebar-wide">Wide sidebar</option><option value="sidebar-slim">Skinny icon bar</option></select>
+          </Setting>
+          <Setting label="Panel Density" help="Comfortable adds breathing room. Compact shows more lead rows.">
+            <select value={settings.leadDensity} onChange={e => setSetting('leadDensity', e.target.value as UISettings['leadDensity'])}><option value="standard">Comfortable</option><option value="compact">Compact</option></select>
+          </Setting>
+          <Setting label="Approval Amount" help="Show or hide Approval in the record header.">
+            <select value={settings.showFinancial} onChange={e => setSetting('showFinancial', e.target.value as UISettings['showFinancial'])}><option value="show">Show</option><option value="hide">Hide</option></select>
+          </Setting>
+          <Setting label="Default Communications Tab" help="Choose which Communications view opens first.">
+            <select value={settings.defaultCommsTab} onChange={e => setSetting('defaultCommsTab', e.target.value as UISettings['defaultCommsTab'])}><option value="all">All</option><option value="messages">Messages</option><option value="calls">Call log</option><option value="contacts">Contacts</option><option value="email">Email</option></select>
+          </Setting>
+          <Setting label="Canvas / Page Background" help="Changes the real space around and between the CRM panels."><ColorPicker value={settings.canvasColor} colors={CANVAS_COLORS} onChange={value => setSetting('canvasColor', value)}/></Setting>
+          <Setting label="Sidebar Color" help="Topbar stays white. Choose a solid sidebar color from the approved palette."><ColorPicker value={settings.sidebarColor} colors={NAV_COLORS} onChange={value => setSetting('sidebarColor', value)}/></Setting>
+          <Setting label="Motion" help="Reduced motion removes non-essential animations.">
+            <select value={settings.motion} onChange={e => setSetting('motion', e.target.value as UISettings['motion'])}><option value="normal">Normal</option><option value="reduced">Reduced</option></select>
+          </Setting>
+          <div className="settings-actions"><button type="button" onClick={onResetPanels}>Reset panel widths</button></div>
         </div>
       </div>
     </div>
   );
+}
+function Setting({ label, help, children }: { label: string; help: string; children: React.ReactNode }) {
+  return <section className="settings-row"><label>{label}</label><p>{help}</p>{children}</section>;
 }
