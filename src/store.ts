@@ -1,127 +1,129 @@
 import { create } from 'zustand';
 import { INITIAL_LEADS, type Lead } from './data';
 
-type NavMode = 'sidebar-slim' | 'sidebar-wide' | 'topbar';
+export type NavMode = 'sidebar-slim' | 'sidebar-wide';
+export type ScreenScale = 'auto' | 'standard' | 'wide' | 'ultra';
+export type CommTab = 'all' | 'messages' | 'calls' | 'contacts' | 'email';
 
-export interface ThemeSettings {
-  fontFamily: string;
-  fontOffset: number;
-  uiScale: number;
-  bgCanvas: string;
-  bgConsole: string;
-}
+export const CANVAS_COLORS = ['#F2F4F8','#F7F8FC','#FFFFFF','#EFF2FB'];
+export const NAV_COLORS = ['#1E2235','#26324A','#314568','#3B6FD4'];
 
-interface Preferences extends ThemeSettings {
-  dialerPinned: boolean;
+export interface UISettings {
+  screenScale: ScreenScale;
+  fontSize: number;
   navMode: NavMode;
+  leadDensity: 'standard' | 'compact';
+  motion: 'normal' | 'reduced';
+  showFinancial: 'show' | 'hide';
+  defaultCommsTab: CommTab;
+  canvasColor: string;
+  sidebarColor: string;
 }
 
-export interface AppState extends ThemeSettings {
+interface AppState extends UISettings {
   leads: Lead[];
-  dialerPinned: boolean;
-  dialerVisible: boolean;
-  navMode: NavMode;
-  setTheme: (theme: Partial<ThemeSettings>) => void;
-  toggleDialerPin: () => void;
-  setDialerVisible: (visible: boolean) => void;
+  setSetting: <K extends keyof UISettings>(key: K, value: UISettings[K]) => void;
   setNavMode: (mode: NavMode) => void;
 }
 
-const DEFAULT_PREFERENCES: Preferences = {
-  fontFamily: "'IBM Plex Sans', sans-serif",
-  fontOffset: 0,
-  uiScale: 1,
-  bgCanvas: '#EEF1F4',
-  bgConsole: '#18263F',
-  dialerPinned: false,
-  navMode: 'sidebar-slim',
+const DEFAULTS: UISettings = {
+  screenScale: 'auto',
+  fontSize: 16.5,
+  navMode: 'sidebar-wide',
+  leadDensity: 'standard',
+  motion: 'normal',
+  showFinancial: 'show',
+  defaultCommsTab: 'all',
+  canvasColor: '#F2F4F8',
+  sidebarColor: '#1E2235',
 };
+const SETTINGS_KEY = 'forge-crm-ui-settings-v16';
+const LEGACY_KEYS = ['forge-crm-ui-settings-v15','forge-crm-ui-settings-v14'];
 
-const SETTINGS_KEY = 'forge-crm-ui-settings-v5';
-
-function loadPreferences(): Preferences {
-  if (typeof localStorage === 'undefined') return DEFAULT_PREFERENCES;
-  try {
-    const parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') as Partial<Preferences>;
-    return {
-      ...DEFAULT_PREFERENCES,
-      ...parsed,
-      uiScale: typeof parsed.uiScale === 'number' ? Math.min(1.5, Math.max(0.75, parsed.uiScale)) : DEFAULT_PREFERENCES.uiScale,
-      fontOffset: typeof parsed.fontOffset === 'number' ? Math.min(20, Math.max(-4, parsed.fontOffset)) : DEFAULT_PREFERENCES.fontOffset,
-      navMode: ['sidebar-slim', 'sidebar-wide', 'topbar'].includes(parsed.navMode ?? '') ? parsed.navMode! : DEFAULT_PREFERENCES.navMode,
-    };
-  } catch {
-    return DEFAULT_PREFERENCES;
-  }
+function clampFontSize(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? Math.max(14.5, Math.min(20, Math.round(n * 2) / 2)) : DEFAULTS.fontSize;
 }
-
-function savePreferences(preferences: Preferences): void {
+function allowedColor(value: unknown, allowed: string[], fallback: string): string {
+  const normalized = typeof value === 'string' ? value.toUpperCase() : '';
+  return allowed.includes(normalized) ? normalized : fallback;
+}
+function sanitize(parsed: Partial<UISettings>): UISettings {
+  return {
+    screenScale: ['auto','standard','wide','ultra'].includes(String(parsed.screenScale)) ? parsed.screenScale as ScreenScale : DEFAULTS.screenScale,
+    fontSize: clampFontSize(parsed.fontSize),
+    navMode: parsed.navMode === 'sidebar-slim' ? 'sidebar-slim' : 'sidebar-wide',
+    leadDensity: parsed.leadDensity === 'compact' ? 'compact' : 'standard',
+    motion: parsed.motion === 'reduced' ? 'reduced' : 'normal',
+    showFinancial: parsed.showFinancial === 'hide' ? 'hide' : 'show',
+    defaultCommsTab: ['all','messages','calls','contacts','email'].includes(String(parsed.defaultCommsTab)) ? parsed.defaultCommsTab as CommTab : DEFAULTS.defaultCommsTab,
+    canvasColor: allowedColor(parsed.canvasColor, CANVAS_COLORS, DEFAULTS.canvasColor),
+    sidebarColor: allowedColor(parsed.sidebarColor, NAV_COLORS, DEFAULTS.sidebarColor),
+  };
+}
+function loadSettings(): UISettings {
+  if (typeof localStorage === 'undefined') return DEFAULTS;
+  try {
+    const direct = localStorage.getItem(SETTINGS_KEY);
+    if (direct) return sanitize(JSON.parse(direct));
+    for (const key of LEGACY_KEYS) {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        const migrated: Partial<UISettings> = {
+          screenScale: parsed.screenScale as ScreenScale,
+          fontSize: typeof parsed.fontSize === 'number' ? parsed.fontSize : (typeof parsed.fontOffset === 'number' ? 16.5 + parsed.fontOffset : undefined),
+          navMode: parsed.navMode === 'sidebar-slim' ? 'sidebar-slim' : 'sidebar-wide',
+          leadDensity: parsed.leadDensity as 'standard' | 'compact',
+          motion: parsed.motion as 'normal' | 'reduced',
+          showFinancial: parsed.showFinancial as 'show' | 'hide',
+          defaultCommsTab: parsed.defaultCommsTab as CommTab,
+          canvasColor: (parsed.canvasColor || parsed.bgCanvas) as string,
+          sidebarColor: (parsed.sidebarColor || parsed.bgConsole) as string,
+        };
+        return sanitize(migrated);
+      }
+    }
+  } catch { /* optional preferences must never break the CRM */ }
+  return DEFAULTS;
+}
+function saveSettings(settings: UISettings): void {
   if (typeof localStorage === 'undefined') return;
-  try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(preferences));
-  } catch {
-    // UI preferences are optional; storage failure must not break the CRM.
-  }
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* ignore storage failures */ }
 }
 
-// Older builds stored the full lead dataset (including SSN/bank fields) in IndexedDB.
-// Remove that legacy database so sensitive lead records are not left in browser storage.
-if (typeof indexedDB !== 'undefined') {
-  try {
-    indexedDB.deleteDatabase('ForgeCRM');
-  } catch {
-    // Ignore browsers where IndexedDB cleanup is unavailable.
-  }
-}
-
-const initialPreferences = loadPreferences();
-
+const initial = loadSettings();
 export const useStore = create<AppState>((set) => ({
   leads: INITIAL_LEADS,
-  ...initialPreferences,
-  dialerVisible: false,
-
-  setTheme: (theme) => set((state) => {
-    const next: Preferences = {
-      fontFamily: theme.fontFamily ?? state.fontFamily,
-      fontOffset: theme.fontOffset ?? state.fontOffset,
-      uiScale: theme.uiScale ?? state.uiScale,
-      bgCanvas: theme.bgCanvas ?? state.bgCanvas,
-      bgConsole: theme.bgConsole ?? state.bgConsole,
-      dialerPinned: state.dialerPinned,
-      navMode: state.navMode,
-    };
-    savePreferences(next);
-    return theme;
-  }),
-
-  toggleDialerPin: () => set((state) => {
-    const dialerPinned = !state.dialerPinned;
-    savePreferences({
-      fontFamily: state.fontFamily,
-      fontOffset: state.fontOffset,
-      uiScale: state.uiScale,
-      bgCanvas: state.bgCanvas,
-      bgConsole: state.bgConsole,
-      dialerPinned,
-      navMode: state.navMode,
+  ...initial,
+  setSetting: (key, value) => set((state) => {
+    const normalized = key === 'fontSize' ? clampFontSize(value) : value;
+    const next = { ...state, [key]: normalized } as AppState;
+    saveSettings({
+      screenScale: next.screenScale,
+      fontSize: next.fontSize,
+      navMode: next.navMode,
+      leadDensity: next.leadDensity,
+      motion: next.motion,
+      showFinancial: next.showFinancial,
+      defaultCommsTab: next.defaultCommsTab,
+      canvasColor: next.canvasColor,
+      sidebarColor: next.sidebarColor,
     });
-    return { dialerPinned, dialerVisible: true };
+    return { [key]: normalized } as Pick<AppState, keyof AppState>;
   }),
-
-  setDialerVisible: (visible) => set((state) => ({
-    dialerVisible: state.dialerPinned ? true : visible,
-  })),
-
   setNavMode: (navMode) => set((state) => {
-    savePreferences({
-      fontFamily: state.fontFamily,
-      fontOffset: state.fontOffset,
-      uiScale: state.uiScale,
-      bgCanvas: state.bgCanvas,
-      bgConsole: state.bgConsole,
-      dialerPinned: state.dialerPinned,
+    const next = { ...state, navMode };
+    saveSettings({
+      screenScale: next.screenScale,
+      fontSize: next.fontSize,
       navMode,
+      leadDensity: next.leadDensity,
+      motion: next.motion,
+      showFinancial: next.showFinancial,
+      defaultCommsTab: next.defaultCommsTab,
+      canvasColor: next.canvasColor,
+      sidebarColor: next.sidebarColor,
     });
     return { navMode };
   }),
