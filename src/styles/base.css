@@ -1,0 +1,86 @@
+:root {
+  --bg-canvas: #F2F4F8;
+  --surface: #FFFFFF;
+  --soft: #F7F8FC;
+  --text-primary: #1E2235;
+  --muted: #5A6078;
+  --dim: #8C93AB;
+  --line: #E2E6F0;
+  --line-strong: #D8DDE8;
+  --selected: #E6ECFA;
+  --accent-blue: #3B6FD4;
+  --accent-blue-soft: #EAF0FF;
+  --accent-amber: #C97B2A;
+  --accent-amber-soft: #FDF3E5;
+  --accent-green: #1A8F7A;
+  --accent-green-soft: #E5F6F3;
+  --navy: #1E2235;
+  --ui-scale: .96;
+  --font-offset: 0px;
+  --font-family-main: 'Inter', Arial, sans-serif;
+  --topbar-h: 52px;
+  --text-xs: 11px;
+  --text-sm: 12.5px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-title: 25px;
+  --radius-panel: 9px;
+}
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; padding: 0; height: 100%; }
+html { -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { background: var(--bg-canvas); color: var(--text-primary); overflow: hidden; font-family: var(--font-family-main) !important; font-size: calc(var(--text-base) + var(--font-offset)); }
+button, input, textarea, select, option, a { font-family: var(--font-family-main) !important; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+a { color: inherit; }
+#root { width: calc(100% / var(--ui-scale)); height: calc(100dvh / var(--ui-scale)); transform: scale(var(--ui-scale)); transform-origin: top left; overflow: hidden; }
+.forge-app { width: 100%; height: 100%; min-width: 0; overflow: hidden; background: var(--bg-canvas); color: var(--text-primary); display: flex; flex-direction: column; }
+.forge-body { flex: 1; min-width: 0; min-height: 0; overflow: hidden; display: flex; }
+.forge-workspace { flex: 1; min-width: 0; min-height: 0; overflow: hidden; position: relative; background: var(--bg-canvas); padding: 12px; }
+.forge-panel-grid { display: grid; width: 100%; height: 100%; min-width: 0; overflow: hidden; }
+.forge-panel-surface { min-width: 0; min-height: 0; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-panel); box-shadow: none; }
+.panel-divider { position: relative; cursor: col-resize; min-width: 12px; background: transparent; touch-action: none; }
+.panel-divider::after { content: ''; position: absolute; top: 8px; bottom: 8px; left: 50%; width: 1px; transform: translateX(-50%); background: var(--line-strong); opacity: .9; }
+.panel-divider:hover::after, body.panel-resizing .panel-divider::after { background: var(--accent-blue); opacity: 1; }
+body.panel-resizing { cursor: col-resize !important; user-select: none; }
+.forge-placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: var(--muted); }
+.forge-placeholder > div { text-align: center; padding: 32px; }
+.forge-placeholder strong { display: block; text-transform: capitalize; color: var(--text-primary); font-size: calc(var(--text-md) + var(--font-offset)); }
+.forge-placeholder span { display: block; margin-top: 8px; font-size: calc(var(--text-base) + var(--font-offset)); }
+.forge-toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 140; max-width: min(480px,calc(100vw - 32px)); padding: 9px 13px; border: 1px solid var(--line-strong); border-radius: 8px; background: #FFFFFF; color: var(--text-primary); box-shadow: 0 4px 12px rgba(30,34,53,.10); font-size: calc(12.5px + var(--font-offset)); font-weight: 520; text-align: center; }
+
+/* Navigation */
+.forge-topbar { height: var(--topbar-h); flex: 0 0 var(--topbar-h); border: 0; border-bottom: 1px solid var(--line); border-radius: 0; display: flex; align-items: center; gap: 12px; padding: 0 20px; background: #FFFFFF; color: var(--text-primary); box-shadow: 0 1px 3px rgba(30,34,53,.08); position: relative; z-index: 40; }
+.forge-brand { font-size: calc(16px + var(--font-offset)); font-weight: 700; letter-spacing: -.025em; white-space: nowrap; color: var(--text-primary); }
+.forge-brand span { margin-left: 5px; color: var(--accent-blue); font-weight: 600; font-size: calc(14px + var(--font-offset)); }
+.forge-topbar-spacer { flex: 1; }
+.forge-tool,.forge-account-button { width: 30px; height: 30px; border: 0; background: transparent; border-radius: 6px; display: grid; place-items: center; color: var(--muted); }
+.forge-tool:hover,.forge-tool.active,.forge-account-button:hover { background: var(--soft); color: var(--text-primary); }
+.forge-account { position: relative; }
+.forge-account-menu { position: absolute; right: 0; top: 36px; width: 168px; padding: 6px; background: #FFFFFF; border: 1px solid var(--line); border-radius: 8px; z-index: 80; color: var(--text-primary); box-shadow: 0 4px 12px rgba(30,34,53,.10); }
+.forge-account-menu button { width: 100%; height: 34px; border: 0; background: transparent; border-radius: 6px; text-align: left; padding: 0 10px; color: var(--text-primary); font-size: calc(var(--text-base) + var(--font-offset)); }
+.forge-account-menu button:not(:disabled):hover { background: var(--soft); }
+
+.forge-sidebar { height: 100%; flex-shrink: 0; border: 0; border-right: 1px solid rgba(255,255,255,.06); border-radius: 0; display: flex; flex-direction: column; overflow: hidden; transition: width 180ms cubic-bezier(.22,1,.36,1); color: #C8CCDC; box-shadow: none; }
+.forge-sidebar.slim { width: 54px; }
+.forge-sidebar.wide { width: 220px; }
+.forge-sidebar-head { height: 48px; flex: 0 0 48px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.forge-sidebar-toggle { width: 30px; height: 30px; flex: 0 0 30px; border: 0; background: transparent; border-radius: 6px; display: grid; place-items: center; color: #C8CCDC; }
+.forge-sidebar-toggle:hover { background: rgba(255,255,255,.06); color: #FFFFFF; }
+.forge-workspace-label { min-width: 0; color: #707792; font-size: calc(9.5px + var(--font-offset)); font-weight: 700; letter-spacing: .10em; line-height: 1; white-space: nowrap; overflow: hidden; }
+.forge-sidebar-nav { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 2px; padding: 10px 0; }
+.forge-side-tab { width: 100%; min-height: 38px; border: 0; border-left: 3px solid transparent; background: transparent; border-radius: 0; display: flex; align-items: center; gap: 10px; padding: 0 15px; white-space: nowrap; color: #C8CCDC; text-align: left; }
+.forge-sidebar.slim .forge-side-tab { justify-content: center; padding: 0; border-left-width: 3px; }
+.forge-side-tab span { font-size: calc(12.5px + var(--font-offset)); font-weight: 500; }
+.forge-side-tab:hover { background: rgba(255,255,255,.05); color: #FFFFFF; }
+.forge-side-tab.active { background: rgba(59,111,212,.18); color: #FFFFFF; border-left-color: var(--accent-blue); }
+.forge-sidebar-bottom { padding: 8px 0 10px; border-top: 1px solid rgba(255,255,255,.07); }
+
+/* Scrollbars: hidden until the scrollable area itself is hovered. */
+.forge-leads-list,.detail-scroll,.comm-scroll,.comm-thread,.comm-contact-book,.comm-contact-detail,.comm-detail-view,.comm-email-view,.messages-list,.settings-scroll { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.forge-leads-list:hover,.detail-scroll:hover,.comm-scroll:hover,.comm-thread:hover,.comm-contact-book:hover,.comm-contact-detail:hover,.comm-detail-view:hover,.comm-email-view:hover,.messages-list:hover,.settings-scroll:hover { scrollbar-color: #C0C6D8 transparent; }
+.forge-leads-list::-webkit-scrollbar,.detail-scroll::-webkit-scrollbar,.comm-scroll::-webkit-scrollbar,.comm-thread::-webkit-scrollbar,.comm-contact-book::-webkit-scrollbar,.comm-contact-detail::-webkit-scrollbar,.comm-detail-view::-webkit-scrollbar,.comm-email-view::-webkit-scrollbar,.messages-list::-webkit-scrollbar,.settings-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+.forge-leads-list::-webkit-scrollbar-thumb,.detail-scroll::-webkit-scrollbar-thumb,.comm-scroll::-webkit-scrollbar-thumb,.comm-thread::-webkit-scrollbar-thumb,.comm-contact-book::-webkit-scrollbar-thumb,.comm-contact-detail::-webkit-scrollbar-thumb,.comm-detail-view::-webkit-scrollbar-thumb,.comm-email-view::-webkit-scrollbar-thumb,.messages-list::-webkit-scrollbar-thumb,.settings-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 99px; }
+.forge-leads-list:hover::-webkit-scrollbar-thumb,.detail-scroll:hover::-webkit-scrollbar-thumb,.comm-scroll:hover::-webkit-scrollbar-thumb,.comm-thread:hover::-webkit-scrollbar-thumb,.comm-contact-book:hover::-webkit-scrollbar-thumb,.comm-contact-detail:hover::-webkit-scrollbar-thumb,.comm-detail-view:hover::-webkit-scrollbar-thumb,.comm-email-view:hover::-webkit-scrollbar-thumb,.messages-list:hover::-webkit-scrollbar-thumb,.settings-scroll:hover::-webkit-scrollbar-thumb { background: #C0C6D8; }
