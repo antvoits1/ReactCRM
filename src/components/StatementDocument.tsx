@@ -43,7 +43,7 @@ export default function StatementDocument({ index, lead }: StatementDocumentProp
   });
 
   return (
-    <div className="w-full h-full bg-white text-slate-900 p-8 flex flex-col text-[calc(12px+var(--font-offset))] font-mono leading-relaxed relative overflow-hidden box-border">
+    <div className="w-full h-full bg-white text-slate-900 p-8 flex flex-col text-[calc(12px+var(--font-offset))] font-sans leading-relaxed relative overflow-hidden box-border">
       <div className="flex justify-between items-start border-b-2 border-slate-800 pb-5 mb-5 gap-6">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold font-sans text-slate-900 tracking-tight truncate">{lead.bank.name}</h1>
@@ -80,7 +80,7 @@ export default function StatementDocument({ index, lead }: StatementDocumentProp
           </div>
           <div className="p-3 text-center">
             <div className="text-[9px] text-slate-500 uppercase tracking-widest mb-1">Withdrawals</div>
-            <div className="text-sm font-bold text-red-600">-${money(withdrawals)}</div>
+            <div className="text-sm font-bold text-amber-700">-${money(withdrawals)}</div>
           </div>
           <div className="p-3 text-center bg-slate-50">
             <div className="text-[9px] text-slate-500 uppercase tracking-widest mb-1">Ending Balance</div>
@@ -105,7 +105,7 @@ export default function StatementDocument({ index, lead }: StatementDocumentProp
               <tr key={`${row.date}-${rowIndex}`}>
                 <td className="py-2">{row.date}</td>
                 <td className="py-2">{row.description}</td>
-                <td className={`py-2 text-right ${row.amount >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                <td className={`py-2 text-right ${row.amount >= 0 ? 'text-green-700' : 'text-amber-700'}`}>
                   {row.amount >= 0 ? '+' : '-'}${money(Math.abs(row.amount))}
                 </td>
                 <td className="py-2 text-right text-slate-400">${money(row.balance)}</td>
