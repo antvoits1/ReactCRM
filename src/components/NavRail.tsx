@@ -1,84 +1,83 @@
-import { Users, MessageSquareText, Mail, ScanLine, TerminalSquare, Bell, Settings } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Bell, Mail, MessageSquareText, PanelLeftClose, PanelLeftOpen, ScanLine, Settings, TerminalSquare, UserRound, Users } from 'lucide-react';
 import type { ActivePage } from '../lib/navigation';
 
-interface NavRailProps {
-  isTop: boolean;
+interface Props {
+  variant: 'topbar' | 'sidebar';
   isWide: boolean;
-  isLight: boolean;
-  bgConsole: string;
+  navColor: string;
   activePage: ActivePage;
   setActivePage: (page: ActivePage) => void;
-  cycleNavMode: () => void;
+  toggleSidebar: () => void;
   onOpenSettings: () => void;
 }
 
 const NAV_ITEMS = [
-  { id: 'crm', icon: Users, label: 'Leads', enabled: true },
-  { id: 'messages', icon: MessageSquareText, label: 'Messages', enabled: true },
-  { id: 'email', icon: Mail, label: 'Email', enabled: false },
-  { id: 'scanner', icon: ScanLine, label: 'Scanner', enabled: false },
-  { id: 'command', icon: TerminalSquare, label: 'Command', enabled: false },
-  { id: 'alerts', icon: Bell, label: 'Alerts', enabled: false },
-] as const;
+  { id: 'crm' as const, icon: Users, label: 'Leads' },
+  { id: 'messages' as const, icon: MessageSquareText, label: 'Messages' },
+  { id: 'email' as const, icon: Mail, label: 'Email' },
+  { id: 'scanner' as const, icon: ScanLine, label: 'Scanner' },
+  { id: 'command' as const, icon: TerminalSquare, label: 'Command' },
+];
 
-export default function NavRail({ isTop, isWide, isLight, bgConsole, activePage, setActivePage, cycleNavMode, onOpenSettings }: NavRailProps) {
+export default function NavRail({ variant, isWide, navColor, activePage, setActivePage, toggleSidebar, onOpenSettings }: Props) {
+  const [accountOpen, setAccountOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const close = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setAccountOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
+
+  if (variant === 'topbar') {
+    return (
+      <header className="forge-topbar">
+        <div className="forge-brand">Forge<span>CRM</span></div>
+        <div className="forge-topbar-spacer"/>
+        <button type="button" className={`forge-tool ${activePage === 'alerts' ? 'active' : ''}`} onClick={() => setActivePage('alerts')} title="Notifications" aria-label="Notifications">
+          <Bell size={18} strokeWidth={1.8}/>
+        </button>
+        <div className="forge-account" ref={menuRef}>
+          <button type="button" className="forge-account-button" onClick={() => setAccountOpen(v => !v)} aria-expanded={accountOpen} aria-label="Account menu">
+            <UserRound size={18} strokeWidth={1.8}/>
+          </button>
+          {accountOpen && (
+            <div className="forge-account-menu">
+              <button type="button" onClick={() => { setAccountOpen(false); onOpenSettings(); }}>Settings</button>
+              <button type="button" disabled title="No authentication service is connected to this build">Log Out</button>
+            </div>
+          )}
+        </div>
+      </header>
+    );
+  }
+
   return (
-    <div
-      className={`${isTop ? 'w-full h-[60px] flex-row px-5' : (isWide ? 'w-[200px]' : 'w-[64px]') + ' flex-col py-5'} flex items-center z-30 flex-shrink-0 shadow-md transition-all duration-300 ease-in-out`}
-      style={{ backgroundColor: bgConsole }}
-    >
-      <button
-        type="button"
-        className={`flex gap-1.5 cursor-pointer hover:opacity-80 transition-opacity ${isTop ? 'mr-8' : 'mb-8'}`}
-        onClick={cycleNavMode}
-        title="Cycle navigation layout"
-        aria-label="Cycle navigation layout"
-      >
-        <span className="w-3 h-3 rounded-full bg-[#ff5f57] border border-slate-200" />
-        <span className="w-3 h-3 rounded-full bg-[#febc2e] border border-slate-200" />
-        <span className="w-3 h-3 rounded-full bg-[#28c840] border border-slate-200" />
-      </button>
-
-      <div className={`flex-1 flex ${isTop ? 'flex-row space-x-2' : 'flex-col space-y-3 w-full px-2'}`}>
-        {NAV_ITEMS.map((item) => {
-          const disabledTone = isLight ? 'text-slate-300' : 'text-white/25';
+    <aside className={`forge-sidebar ${isWide ? 'wide' : 'slim'}`} style={{ backgroundColor: navColor }}>
+      <div className="forge-sidebar-head">
+        <button type="button" className="forge-sidebar-toggle" onClick={toggleSidebar} title={isWide ? 'Minimize sidebar' : 'Expand sidebar'} aria-label={isWide ? 'Minimize sidebar' : 'Expand sidebar'}>
+          {isWide ? <PanelLeftClose size={18} strokeWidth={1.8}/> : <PanelLeftOpen size={18} strokeWidth={1.8}/>} 
+        </button>
+        {isWide && <div className="forge-workspace-label">WORKSPACE</div>}
+      </div>
+      <nav className="forge-sidebar-nav" aria-label="Primary">
+        {NAV_ITEMS.map(item => {
+          const Icon = item.icon;
           return (
-            <button
-              key={item.id}
-              type="button"
-              disabled={!item.enabled}
-              onClick={() => item.enabled && setActivePage(item.id)}
-              title={item.enabled ? item.label : `${item.label} is not available in this build`}
-              className={`${isTop ? 'w-11 h-11 justify-center' : 'w-full h-11 px-3 ' + (isWide ? 'justify-start' : 'justify-center')} flex items-center transition-all duration-200 rounded-lg relative ${
-                !item.enabled
-                  ? `${disabledTone} cursor-not-allowed opacity-55`
-                  : activePage === item.id
-                    ? (isLight ? 'text-slate-900 bg-black/10 shadow-sm' : 'text-white bg-white/10 shadow-sm')
-                    : (isLight ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-100' : 'text-[#8C9BB4] hover:text-white hover:bg-white/5')
-              }`}
-            >
-              <item.icon size={20} strokeWidth={1.5} className="flex-shrink-0" />
-              {(!isTop && isWide) && (
-                <span className="ml-3 text-[calc(13px+var(--font-offset))] font-medium tracking-wide whitespace-nowrap">{item.label}</span>
-              )}
+            <button key={item.id} type="button" onClick={() => setActivePage(item.id)} className={`forge-side-tab ${activePage === item.id ? 'active' : ''}`} title={item.label}>
+              <Icon size={18} strokeWidth={1.8}/>{isWide && <span>{item.label}</span>}
             </button>
           );
         })}
-      </div>
-
-      <div className={`flex ${isTop ? 'items-center space-x-2 ml-8' : 'flex-col space-y-3 mt-auto w-full px-2'}`}>
-        <button
-          type="button"
-          onClick={onOpenSettings}
-          title="Settings"
-          className={`${isTop ? 'w-11 h-11 justify-center' : 'w-full h-11 px-3 ' + (isWide ? 'justify-start' : 'justify-center')} flex items-center ${isLight ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-100' : 'text-[#8C9BB4] hover:text-white hover:bg-white/5'} transition-colors rounded-lg`}
-        >
-          <Settings size={20} strokeWidth={1.5} className="flex-shrink-0" />
-          {(!isTop && isWide) && (
-            <span className="ml-3 text-[calc(13px+var(--font-offset))] font-medium tracking-wide whitespace-nowrap">Settings</span>
-          )}
+      </nav>
+      <div className="forge-sidebar-bottom">
+        <button type="button" onClick={onOpenSettings} className="forge-side-tab" title="Settings">
+          <Settings size={18} strokeWidth={1.8}/>{isWide && <span>Settings</span>}
         </button>
       </div>
-    </div>
+    </aside>
   );
 }
